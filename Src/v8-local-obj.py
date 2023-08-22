@@ -84,13 +84,11 @@ class DetectedObject:
                                             feet_xy[0] - self.keypoints[i][0][0]))
             if ((angle < 50) or (angle > 150)):
                 self.is_down = True
-
-            if self.is_down:
                 x, y, w, h = self.bbox_wh
                 x1, y1, x2, y2 = self.bbox_xy
                 cv2.rectangle(img=frame, pt1=(x1-thickness, y1-50), pt2=(x2+thickness, y2-(h+20)),
                             color=(0,0,0), thickness=-1)
-                cv2.putText(frame, "ON THE GROUND", org=(x1, y1-25), fontFace=font,
+                cv2.putText(frame, "FALLEN", org=(x1, y1-25), fontFace=font,
                             fontScale=1, color=(255,255,255), thickness=1)
 
     def obj_info(self):
@@ -210,7 +208,7 @@ def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscre
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid5.mp4'
+    vid_path = '../Data/vid3.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
@@ -228,6 +226,6 @@ if __name__ == "__main__":
            count_obj=True,
            show_count_onscreen=True,
            show_box=True,
-           show_zone=True,
+           show_zone=False,
            print_obj_info=True,
            save_video=False)
