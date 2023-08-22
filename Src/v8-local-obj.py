@@ -142,17 +142,19 @@ def generate_objects(results_pose, results_obj):
                                     )
     return list_objects
 
+# one or more zones in which to count the people inside
 def draw_zone(poly, frame):
      cv2.polylines(img=frame, pts=[poly], isClosed=True,
                    color=(255, 0, 0), thickness=thickness)
 
-def count_people(frame, list_objects, show_count_onscreen):
+# counting overall objects on screen, including people, bikes and cars
+def count_objs(frame, list_objects, show_count_onscreen):
     count_people = sum(1 for obj in list_objects if obj.label_num == 0)
     count_bike = sum(1 for obj in list_objects if obj.label_num == 1)
     count_car = sum(1 for obj in list_objects if obj.label_num == 2)
 
     if show_count_onscreen:
-        cv2.rectangle(img=frame, pt1=(0,0), pt2=(120,80), color=(0,0,0), thickness=-1)
+        cv2.rectangle(img=frame, pt1=(0,0), pt2=(110,80), color=(0,0,0), thickness=-1)
         cv2.putText(img=frame, text=f"People: {count_people}", org=(0, 25), fontFace=font,
                     fontScale=.6, color=(255,255,255), thickness=1)
         cv2.putText(img=frame, text=f"Bicycles: {count_bike}", org=(0, 50), fontFace=font,
@@ -162,6 +164,7 @@ def count_people(frame, list_objects, show_count_onscreen):
 
 ###################################################################################
 
+# feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscreen, count_obj, show_count_onscreen, show_box, show_zone, print_obj_info, save_video):
     model_pose = YOLO("yolov8n-pose.pt")
     model_obj = YOLO("yolov8n.pt")
@@ -189,7 +192,7 @@ def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscre
 
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
             if detect_is_down: [obj.detect_is_down(frame, show_keypoints, show_down_onscreen) for obj in list_objects]
-            if count_obj: count_people(frame, list_objects, show_count_onscreen)
+            if count_obj: count_objs(frame, list_objects, show_count_onscreen)
             if print_obj_info: [obj.obj_info() for obj in list_objects]
             if show_zone: draw_zone(zone_poly, frame)
 
