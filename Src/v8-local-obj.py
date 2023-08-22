@@ -53,7 +53,6 @@ class DetectedObject:
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
     def draw_boxes(self, frame):
-
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
@@ -61,6 +60,8 @@ class DetectedObject:
                       color=labels_dict[int(self.label_num)][1], thickness=thickness)
         cv2.rectangle(img=frame, pt1=(x1-thickness, y1-20), pt2=(x2+thickness, y2-h),
                       color=labels_dict[int(self.label_num)][1], thickness=-1)
+
+        # information about each object, can contain any class attribute
         cv2.putText(frame, f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
                     fontScale=.5, color=(255,255,255), thickness=1)
 
@@ -73,6 +74,7 @@ class DetectedObject:
                 feet_xy = [int((self.keypoints[i][16][0] + self.keypoints[i][15][0])/2),
                            int((self.keypoints[i][16][1] + self.keypoints[i][15][1])/2)]
 
+                # draw keypoints on the screen
                 if show_keypoints:
                     for j in range(17):
                         cv2.circle(img=frame, center=(self.keypoints[i][j][0], self.keypoints[i][j][1]), radius=2,
@@ -80,8 +82,11 @@ class DetectedObject:
                         cv2.line(img=frame, pt1=(self.keypoints[i][0][0], self.keypoints[i][0][1]),
                                  pt2=(feet_xy[0], feet_xy[1]), color=(255,0,255), thickness=thickness)
 
+            # angle with respect to the ground
             angle = math.degrees(math.atan2(feet_xy[1] - self.keypoints[i][0][1],
                                             feet_xy[0] - self.keypoints[i][0][0]))
+
+            # the angle determines if the person is on the ground or not
             if ((angle < 50) or (angle > 150)):
                 self.is_down = True
                 x, y, w, h = self.bbox_wh
@@ -91,6 +96,7 @@ class DetectedObject:
                 cv2.putText(frame, "FALLEN", org=(x1, y1-25), fontFace=font,
                             fontScale=1, color=(255,255,255), thickness=1)
 
+    # prints or returns all info about the detected objects in each frame
     def obj_info(self):
         #for key in BODY_MAP:
         #    kp_position_dict[key] = [self.keypoints[0][BODY_MAP[key]][0], self.keypoints[0][BODY_MAP[key]][1]]
@@ -106,6 +112,7 @@ class DetectedObject:
 
         print(self.info, "\n")
 
+# dynamically creating objects from yolo detection and pose estimation
 def generate_objects(results_pose, results_obj):
     list_objects = []
     # pose detection results
@@ -116,10 +123,12 @@ def generate_objects(results_pose, results_obj):
     for r in results_obj:
         boxes = r.boxes.numpy()
 
+        # only creating an object if it belongs to the chosen classes
         for box in (x for x in boxes if x.cls in [0,1,2]):
-            if box.cls == 0:
+            if box.cls == 0: # == person
                 keypoints = kp
             else:
+                # if object is not a person, keypoints = 0
                 keypoints = 0
             if box.id != None:
                 list_objects.append(DetectedObject(id=int(box.id),
