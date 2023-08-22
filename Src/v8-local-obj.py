@@ -29,6 +29,7 @@ kp_position_dict = {"nose": [], "eye_sx": [], "eye_dx": [],
                    "foot_sx": [], "foot_dx": []
 }
 
+# dictionary to map the class number obtained with yolo with its name and color for bounding boxes
 labels_dict = {0: ["person", (209,209,0)],
                1: ["bicycle", (47,139,237)],
                2: ["car", (42,237,139)]
@@ -50,6 +51,7 @@ class DetectedObject:
         self.is_down = False
         self.info = {}
 
+    # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
     def draw_boxes(self, frame):
 
         x, y, w, h = self.bbox_wh
