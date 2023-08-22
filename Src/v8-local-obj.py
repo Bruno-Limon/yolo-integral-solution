@@ -45,8 +45,8 @@ class DetectedObject:
         self.label_num = label_num
         self.label_str = label_str
         self.conf = conf
-        self.bbox_xy = bbox_xy
-        self.bbox_wh = bbox_wh
+        self.bbox_xy = bbox_xy # left upper corner and right lower corner
+        self.bbox_wh = bbox_wh # center of bbox together with width and height
         self.keypoints = keypoints
         self.is_down = False
         self.info = {}
@@ -64,6 +64,8 @@ class DetectedObject:
         cv2.putText(frame, f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
                     fontScale=.5, color=(255,255,255), thickness=1)
 
+    # detects if someone is on the ground by using the keypoints of each object and measuring the angle of the
+    # person's body with respect to the ground
     def detect_is_down(self, frame, show_keypoints, show_down_onscreen):
         if self.label_str == "person":
             # i is the number of the person, j is the body part
@@ -83,15 +85,13 @@ class DetectedObject:
             if ((angle < 50) or (angle > 150)):
                 self.is_down = True
 
-            if show_down_onscreen:
-                if self.is_down:
-                    x, y, w, h = self.bbox_wh
-                    x1, y1, x2, y2 = self.bbox_xy
-
-                    cv2.rectangle(img=frame, pt1=(x1-thickness, y1-50), pt2=(x2+thickness, y2-(h+20)),
-                                color=(0,0,0), thickness=-1)
-                    cv2.putText(frame, "ON THE GROUND", org=(x1, y1-25), fontFace=font,
-                                fontScale=1, color=(255,255,255), thickness=1)
+            if self.is_down:
+                x, y, w, h = self.bbox_wh
+                x1, y1, x2, y2 = self.bbox_xy
+                cv2.rectangle(img=frame, pt1=(x1-thickness, y1-50), pt2=(x2+thickness, y2-(h+20)),
+                            color=(0,0,0), thickness=-1)
+                cv2.putText(frame, "ON THE GROUND", org=(x1, y1-25), fontFace=font,
+                            fontScale=1, color=(255,255,255), thickness=1)
 
     def obj_info(self):
         #for key in BODY_MAP:
