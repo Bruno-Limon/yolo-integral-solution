@@ -208,7 +208,7 @@ def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscre
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid3.mp4'
+    vid_path = '../Data/vid5.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
