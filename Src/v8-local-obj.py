@@ -242,7 +242,7 @@ if __name__ == "__main__":
     # calling main detection function, passing all necessary arguments
     detect(vid_path=vid_path,
            zone_poly=zone_poly,
-           do_man_down=False,
+           do_man_down=True,
            show_keypoints=True,
            show_down_onscreen=True,
            do_count_objs=True,
@@ -250,5 +250,5 @@ if __name__ == "__main__":
            show_box=True,
            do_count_zone=True,
            show_zone_onscreen=True,
-           print_obj_info=False,
+           print_obj_info=True,
            save_video=False)
