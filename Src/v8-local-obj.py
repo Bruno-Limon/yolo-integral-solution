@@ -143,9 +143,18 @@ def generate_objects(results_pose, results_obj):
     return list_objects
 
 # one or more zones in which to count the people inside
-def draw_zone(poly, frame):
-     cv2.polylines(img=frame, pts=[poly], isClosed=True,
-                   color=(255, 0, 0), thickness=thickness)
+def count_zone(frame, list_objects, poly, show_zone_onscreen):
+    count_people_polygon = 0
+    for obj in (obj for obj in list_objects if obj.label_num == 0):
+        x,y,w,h = obj.bbox_wh
+        point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
+        if point_in_polygon == 1.0 or point_in_polygon == 0.0: count_people_polygon += 1
+
+    if show_zone_onscreen:
+        cv2.polylines(img=frame, pts=[poly], isClosed=True, color=(255,0,0), thickness=thickness)
+        cv2.rectangle(img=frame, pt1=(850, 670), pt2=(900, 710), color=(255,0,0), thickness=-1)
+        cv2.putText(img=frame, text=str(count_people_polygon), org=(865, 700), fontFace=font,
+                    fontScale=1, color=(255,255,255), thickness=2)
 
 # counting overall objects on screen, including people, bikes and cars
 def count_objs(frame, list_objects, show_count_onscreen):
@@ -165,7 +174,8 @@ def count_objs(frame, list_objects, show_count_onscreen):
 ###################################################################################
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
-def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscreen, count_obj, show_count_onscreen, show_box, show_zone, print_obj_info, save_video):
+def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
+           show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, print_obj_info, save_video):
     model_pose = YOLO("yolov8n-pose.pt")
     model_obj = YOLO("yolov8n.pt")
 
@@ -191,10 +201,10 @@ def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscre
             list_objects = generate_objects(results_pose, results_obj)
 
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
-            if detect_is_down: [obj.detect_is_down(frame, show_keypoints, show_down_onscreen) for obj in list_objects]
-            if count_obj: count_objs(frame, list_objects, show_count_onscreen)
+            if do_man_down: [obj.detect_is_down(frame, show_keypoints, show_down_onscreen) for obj in list_objects]
+            if do_count_objs: count_objs(frame, list_objects, show_count_onscreen)
             if print_obj_info: [obj.obj_info() for obj in list_objects]
-            if show_zone: draw_zone(zone_poly, frame)
+            if do_count_zone: count_zone(frame, list_objects, zone_poly, show_zone_onscreen)
 
             # write output video
             if save_video: output.write(frame)
@@ -232,12 +242,13 @@ if __name__ == "__main__":
     # calling main detection function, passing all necessary arguments
     detect(vid_path=vid_path,
            zone_poly=zone_poly,
-           detect_is_down=True,
+           do_man_down=False,
            show_keypoints=True,
            show_down_onscreen=True,
-           count_obj=True,
+           do_count_objs=True,
            show_count_onscreen=True,
            show_box=True,
-           show_zone=False,
-           print_obj_info=True,
+           do_count_zone=True,
+           show_zone_onscreen=True,
+           print_obj_info=False,
            save_video=False)
