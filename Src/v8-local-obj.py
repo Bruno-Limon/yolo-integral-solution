@@ -209,19 +209,19 @@ def detect(vid_path, zone_poly, detect_is_down, show_keypoints, show_down_onscre
 if __name__ == "__main__":
 
     # video source
-    vid_path = 'vid12.mp4'
+    vid_path = '../Data/vid5.mp4'
 
     # zone to count people in
-    zone_poly = np.array([[290, 370],
-                          [790, 370],
-                          [850, 470],
-                          [270, 470]], np.int32)
+    zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
+                          [1270, 570],#x2, y2 = right upper corner
+                          [1265, 710],#x3, y3 = right lower corner
+                          [430, 710]], np.int32) #x4, y4 = left lower corner
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
     # calling main detection function, passing all necessary arguments
     detect(vid_path=vid_path,
            zone_poly=zone_poly,
-           detect_is_down=False,
+           detect_is_down=True,
            show_keypoints=True,
            show_down_onscreen=True,
            count_obj=True,
