@@ -7,6 +7,7 @@ from ultralytics import YOLO
 
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # text settings
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -196,7 +197,7 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.40, tracker="bytetrack.yaml")
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.40, persist=True, tracker="bytetrack.yaml")
 
             list_objects = generate_objects(results_pose, results_obj)
 
@@ -230,7 +231,7 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid5.mp4'
+    vid_path = '../Data/vid1.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
@@ -242,13 +243,13 @@ if __name__ == "__main__":
     # calling main detection function, passing all necessary arguments
     detect(vid_path=vid_path,
            zone_poly=zone_poly,
-           do_man_down=True,
+           do_man_down=False,
            show_keypoints=True,
            show_down_onscreen=True,
            do_count_objs=True,
            show_count_onscreen=True,
            show_box=True,
-           do_count_zone=True,
+           do_count_zone=False,
            show_zone_onscreen=True,
            print_obj_info=True,
            save_video=False)
