@@ -191,6 +191,7 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
                                  fps=fps, frameSize=(width, height))
 
     while cap.isOpened():
+        print("dentro cap")
         success, frame = cap.read()
         frame_counter += fps # this advances 1 seconds between each frame
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
@@ -223,7 +224,8 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
 
     # release the video capture object and close the display window
     cap.release()
-    if save_video: output.release()
+    if save_video:
+        output.release()
     cv2.destroyAllWindows()
 
 ###################################################################################
