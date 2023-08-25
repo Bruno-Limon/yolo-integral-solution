@@ -194,7 +194,7 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
         print("dentro cap")
         success, frame = cap.read()
         frame_counter += fps # this advances 1 seconds between each frame
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
@@ -222,6 +222,8 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
         else:
             break
 
+    print("fuori cap")
+
     # release the video capture object and close the display window
     cap.release()
     if save_video:
@@ -233,7 +235,7 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid1.mp4'
+    vid_path = '../Data/vid5.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
@@ -251,7 +253,7 @@ if __name__ == "__main__":
            do_count_objs=True,
            show_count_onscreen=True,
            show_box=True,
-           do_count_zone=False,
+           do_count_zone=True,
            show_zone_onscreen=True,
            print_obj_info=True,
            save_video=False)
