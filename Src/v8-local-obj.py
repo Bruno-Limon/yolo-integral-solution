@@ -1,9 +1,9 @@
-import cv2
 import math
 import numpy as np
 import os
 from datetime import datetime
 from ultralytics import YOLO
+import cv2
 
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
@@ -177,8 +177,8 @@ def count_objs(frame, list_objects, show_count_onscreen):
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
            show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, print_obj_info, save_video):
-    model_pose = YOLO("yolov8n-pose.pt")
-    model_obj = YOLO("yolov8n.pt")
+    model_pose = YOLO("yolov8s-pose.pt")
+    model_obj = YOLO("yolov8s.pt")
 
     frame_counter = 0
     cap = cv2.VideoCapture(vid_path, cv2.CAP_FFMPEG)
@@ -194,11 +194,11 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
         print("dentro cap")
         success, frame = cap.read()
         frame_counter += fps # this advances 1 seconds between each frame
-        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.40, persist=True, tracker="bytetrack.yaml")
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.40, persist=True)
 
             list_objects = generate_objects(results_pose, results_obj)
 
