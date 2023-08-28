@@ -193,7 +193,7 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
     while cap.isOpened():
         success, frame = cap.read()
         frame_counter += fps # this advances 1 seconds between each frame
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
@@ -237,7 +237,7 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid1.mp4'
+    vid_path = '../Data/vid5.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
     # calling generator that yields a list with info about detected objects
     for list_obj_info in detect(vid_path=vid_path,
-                                show_image=False,
+                                show_image=True,
                                 zone_poly=zone_poly,
                                 do_man_down=False,
                                 show_keypoints=True,
