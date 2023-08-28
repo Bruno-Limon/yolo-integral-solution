@@ -111,7 +111,7 @@ class DetectedObject:
                     "is_down": self.is_down
         }
 
-        print(self.info, "\n")
+        return self.info
 
 # dynamically creating objects from yolo detection and pose estimation
 def generate_objects(results_pose, results_obj):
@@ -175,7 +175,7 @@ def count_objs(frame, list_objects, show_count_onscreen):
 ###################################################################################
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
-def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
+def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
            show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, print_obj_info, save_video):
     model_pose = YOLO("yolov8s-pose.pt")
     model_obj = YOLO("yolov8s.pt")
@@ -191,7 +191,6 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
                                  fps=fps, frameSize=(width, height))
 
     while cap.isOpened():
-        print("dentro cap")
         success, frame = cap.read()
         frame_counter += fps # this advances 1 seconds between each frame
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
@@ -205,14 +204,18 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
             if do_man_down: [obj.detect_is_down(frame, show_keypoints, show_down_onscreen) for obj in list_objects]
             if do_count_objs: count_objs(frame, list_objects, show_count_onscreen)
-            if print_obj_info: [obj.obj_info() for obj in list_objects]
             if do_count_zone: count_zone(frame, list_objects, zone_poly, show_zone_onscreen)
+
+            obj_info = []
+            for obj in list_objects:
+                x = obj.obj_info()
+                obj_info.append(x)
 
             # write output video
             if save_video: output.write(frame)
 
             # display the annotated frame
-            cv2.imshow("Demo", frame)
+            if show_image: cv2.imshow("Demo", frame)
 
             # break the loop if 'q' is pressed
             if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -222,20 +225,20 @@ def detect(vid_path, zone_poly, do_man_down, show_keypoints, show_down_onscreen,
         else:
             break
 
-    print("fuori cap")
-
     # release the video capture object and close the display window
     cap.release()
     if save_video:
         output.release()
     cv2.destroyAllWindows()
 
+    return obj_info
+
 ###################################################################################
 
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid5.mp4'
+    vid_path = '../Data/vid2.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
@@ -245,15 +248,17 @@ if __name__ == "__main__":
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
     # calling main detection function, passing all necessary arguments
-    detect(vid_path=vid_path,
-           zone_poly=zone_poly,
-           do_man_down=False,
-           show_keypoints=True,
-           show_down_onscreen=True,
-           do_count_objs=True,
-           show_count_onscreen=True,
-           show_box=True,
-           do_count_zone=True,
-           show_zone_onscreen=True,
-           print_obj_info=True,
-           save_video=False)
+    abc = detect(vid_path=vid_path,
+                 show_image=True,
+                 zone_poly=zone_poly,
+                 do_man_down=False,
+                 show_keypoints=True,
+                 show_down_onscreen=True,
+                 do_count_objs=True,
+                 show_count_onscreen=True,
+                 show_box=True,
+                 do_count_zone=True,
+                 show_zone_onscreen=True,
+                 print_obj_info=False,
+                 save_video=False)
+    print(abc)
