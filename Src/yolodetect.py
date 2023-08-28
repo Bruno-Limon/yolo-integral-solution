@@ -246,7 +246,7 @@ if __name__ == "__main__":
                           [430, 710]], np.int32) #x4, y4 = left lower corner
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
-    # calling main detection function, passing all necessary arguments
+    # calling generator that yields a list with info about detected objects
     for list_obj_info in detect(vid_path=vid_path,
                                 show_image=False,
                                 zone_poly=zone_poly,
@@ -260,5 +260,6 @@ if __name__ == "__main__":
                                 show_zone_onscreen=True,
                                 save_video=False):
 
+        # print info about objects
         for x in list_obj_info:
             print(x, "\n")
