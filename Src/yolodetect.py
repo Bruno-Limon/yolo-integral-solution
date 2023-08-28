@@ -176,7 +176,7 @@ def count_objs(frame, list_objects, show_count_onscreen):
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
-           show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, print_obj_info, save_video):
+           show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, save_video):
     model_pose = YOLO("yolov8s-pose.pt")
     model_obj = YOLO("yolov8s.pt")
 
@@ -210,6 +210,7 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
             for obj in list_objects:
                 x = obj.obj_info()
                 obj_info.append(x)
+            yield obj_info
 
             # write output video
             if save_video: output.write(frame)
@@ -231,34 +232,33 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
         output.release()
     cv2.destroyAllWindows()
 
-    return obj_info
-
 ###################################################################################
 
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid2.mp4'
+    vid_path = '../Data/vid1.mp4'
 
     # zone to count people in
-    zone_poly = np.array([[460, 570], #x1, y1 = left upper corner
-                          [1270, 570],#x2, y2 = right upper corner
-                          [1265, 710],#x3, y3 = right lower corner
+    zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
+                          [1270, 570], #x2, y2 = right upper corner
+                          [1265, 710], #x3, y3 = right lower corner
                           [430, 710]], np.int32) #x4, y4 = left lower corner
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
     # calling main detection function, passing all necessary arguments
-    abc = detect(vid_path=vid_path,
-                 show_image=True,
-                 zone_poly=zone_poly,
-                 do_man_down=False,
-                 show_keypoints=True,
-                 show_down_onscreen=True,
-                 do_count_objs=True,
-                 show_count_onscreen=True,
-                 show_box=True,
-                 do_count_zone=True,
-                 show_zone_onscreen=True,
-                 print_obj_info=False,
-                 save_video=False)
-    print(abc)
+    for list_obj_info in detect(vid_path=vid_path,
+                                show_image=False,
+                                zone_poly=zone_poly,
+                                do_man_down=False,
+                                show_keypoints=True,
+                                show_down_onscreen=True,
+                                do_count_objs=True,
+                                show_count_onscreen=True,
+                                show_box=True,
+                                do_count_zone=False,
+                                show_zone_onscreen=True,
+                                save_video=False):
+
+        for x in list_obj_info:
+            print(x, "\n")
