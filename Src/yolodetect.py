@@ -1,8 +1,10 @@
 import math
-import numpy as np
 import os
 from datetime import datetime
+from collections import defaultdict
+
 from ultralytics import YOLO
+import numpy as np
 import cv2
 
 # enable rtsp capture for opencv
@@ -50,6 +52,8 @@ class DetectedObject:
         self.bbox_wh = bbox_wh # center of bbox together with width and height
         self.keypoints = keypoints
         self.is_down = False
+        self.is_in_zone = False
+        self.time_in_zone = 0
         self.info = {}
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
@@ -63,13 +67,25 @@ class DetectedObject:
                       color=labels_dict[int(self.label_num)][1], thickness=-1)
 
         # information about each object, can contain any class attribute
-        cv2.putText(frame, f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
+        cv2.putText(img=frame, text=f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
                     fontScale=.5, color=(255,255,255), thickness=1)
+
+    def draw_tracks(self, frame, show_tracks, track_history):
+        if show_tracks:
+            x, y, w, h = self.bbox_wh
+            track = track_history[self.id]
+            track.append((float(x), float(y)))  # x, y center point
+            if len(track) > 300:  # how many frames to keep the track
+                track.pop(0)
+
+            # draw the tracking lines
+            points = np.hstack(track).astype(np.int32).reshape((-1,1,2))
+            cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
 
     # detects if someone is on the ground by using the keypoints of each object and measuring the angle of the
     # person's body with respect to the ground
-    def detect_is_down(self, frame, show_keypoints, show_down_onscreen):
-        if self.label_str == "person":
+    def detect_is_down(self, frame, show_keypoints):
+        if self.label_num == 0:
             # i is the number of the person, j is the body part
             for i in range(len(self.keypoints)):
                 feet_xy = [int((self.keypoints[i][16][0] + self.keypoints[i][15][0])/2),
@@ -94,8 +110,39 @@ class DetectedObject:
                 x1, y1, x2, y2 = self.bbox_xy
                 cv2.rectangle(img=frame, pt1=(x1-thickness, y1-50), pt2=(x2+thickness, y2-(h+20)),
                             color=(0,0,0), thickness=-1)
-                cv2.putText(frame, "FALLEN", org=(x1, y1-25), fontFace=font,
+                cv2.putText(img=frame, text="FALLEN", org=(x1, y1-25), fontFace=font,
                             fontScale=1, color=(255,255,255), thickness=1)
+
+    def count_zone(self, frame, cap, list_objects, poly, show_zone_onscreen):
+        count_people_polygon = 0
+
+        x, y, w, h = self.bbox_wh
+        x1, y1, x2, y2 = self.bbox_xy
+
+        point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
+        if self.label_num == 0 and (point_in_polygon == 1.0 or point_in_polygon == 0.0):
+            self.is_in_zone = True
+
+            if show_zone_onscreen:
+                current_frame = cap.get(cv2.CAP_PROP_POS_FRAMES)
+                cv2.putText(img=frame, text=str(current_frame), org=(x1+int((w/4)), y1-25), fontFace=font,
+                            fontScale=.5, color=(255,255,255), thickness=2)
+
+            # while self.is_in_zone == True:
+            #     # contare tempo
+            #     # self.time_in_zone =+ tempo
+            #     pass
+
+        for obj in (obj for obj in list_objects if obj.label_num == 0):
+            x, y, w, h = obj.bbox_wh
+            point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
+            if point_in_polygon == 1.0 or point_in_polygon == 0.0: count_people_polygon += 1
+
+        if show_zone_onscreen:
+            cv2.polylines(img=frame, pts=[poly], isClosed=True, color=(255,0,0), thickness=thickness)
+            cv2.rectangle(img=frame, pt1=(850, 670), pt2=(900, 710), color=(255,0,0), thickness=-1)
+            cv2.putText(img=frame, text=str(count_people_polygon), org=(865, 700), fontFace=font,
+                        fontScale=1, color=(255,255,255), thickness=2)
 
     # prints or returns all info about the detected objects in each frame
     def obj_info(self):
@@ -108,7 +155,9 @@ class DetectedObject:
                     "confidence": self.conf,
                     "bbox_xywh": self.bbox_wh,
                     "keypoints": 0,
-                    "is_down": self.is_down
+                    "is_down": self.is_down,
+                    "is_in_zone": self.is_in_zone,
+                    "time_in_zone": self.time_in_zone
         }
 
         return self.info
@@ -143,20 +192,6 @@ def generate_objects(results_pose, results_obj):
                                     )
     return list_objects
 
-# one or more zones in which to count the people inside
-def count_zone(frame, list_objects, poly, show_zone_onscreen):
-    count_people_polygon = 0
-    for obj in (obj for obj in list_objects if obj.label_num == 0):
-        x,y,w,h = obj.bbox_wh
-        point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
-        if point_in_polygon == 1.0 or point_in_polygon == 0.0: count_people_polygon += 1
-
-    if show_zone_onscreen:
-        cv2.polylines(img=frame, pts=[poly], isClosed=True, color=(255,0,0), thickness=thickness)
-        cv2.rectangle(img=frame, pt1=(850, 670), pt2=(900, 710), color=(255,0,0), thickness=-1)
-        cv2.putText(img=frame, text=str(count_people_polygon), org=(865, 700), fontFace=font,
-                    fontScale=1, color=(255,255,255), thickness=2)
-
 # counting overall objects on screen, including people, bikes and cars
 def count_objs(frame, list_objects, show_count_onscreen):
     count_people = sum(1 for obj in list_objects if obj.label_num == 0)
@@ -175,12 +210,12 @@ def count_objs(frame, list_objects, show_count_onscreen):
 ###################################################################################
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
-def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_down_onscreen, do_count_objs,
-           show_count_onscreen, show_box, do_count_zone, show_zone_onscreen, save_video):
+def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoints, show_count_onscreen, show_zone_onscreen, save_video):
     model_pose = YOLO("yolov8s-pose.pt")
     model_obj = YOLO("yolov8s.pt")
 
     frame_counter = 0
+    xx = 0
     cap = cv2.VideoCapture(vid_path, cv2.CAP_FFMPEG)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -190,22 +225,34 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
         output = cv2.VideoWriter("output-demo.avi", cv2.VideoWriter_fourcc(*'MPEG'),
                                  fps=fps, frameSize=(width, height))
 
+    # Store the track history
+    track_history = defaultdict(lambda: [])
+
     while cap.isOpened():
         success, frame = cap.read()
-        frame_counter += fps # this advances 1 seconds between each frame
-        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        # how many frames to skip
+        frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.40, persist=True)
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.3, persist=True, tracker="botsort.yaml", iou=.5)
 
             list_objects = generate_objects(results_pose, results_obj)
 
+            # show bounding boxes
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
-            if do_man_down: [obj.detect_is_down(frame, show_keypoints, show_down_onscreen) for obj in list_objects]
-            if do_count_objs: count_objs(frame, list_objects, show_count_onscreen)
-            if do_count_zone: count_zone(frame, list_objects, zone_poly, show_zone_onscreen)
+            # draw tracks
+            #[obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
+            list_objects[0].draw_tracks(frame, show_tracks, track_history)
+            # detect man down
+            #[obj.detect_is_down(frame, show_keypoints) for obj in list_objects]
+            # count objects and their time in a zone
+            [obj.count_zone(frame, cap, list_objects, zone_poly, show_zone_onscreen) for obj in list_objects]
+            # count objects
+            count_objs(frame, list_objects, show_count_onscreen)
 
+            # get object info
             obj_info = []
             for obj in list_objects:
                 x = obj.obj_info()
@@ -237,7 +284,7 @@ def detect(vid_path, show_image, zone_poly, do_man_down, show_keypoints, show_do
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid5.mp4'
+    vid_path = '../Data/vid6.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
@@ -248,18 +295,16 @@ if __name__ == "__main__":
 
     # calling generator that yields a list with info about detected objects
     for list_obj_info in detect(vid_path=vid_path,
-                                show_image=True,
                                 zone_poly=zone_poly,
-                                do_man_down=False,
-                                show_keypoints=True,
-                                show_down_onscreen=True,
-                                do_count_objs=True,
-                                show_count_onscreen=True,
+                                show_image=True,
                                 show_box=True,
-                                do_count_zone=False,
-                                show_zone_onscreen=True,
+                                show_tracks=True,
+                                show_keypoints=False,
+                                show_count_onscreen=False,
+                                show_zone_onscreen=False,
                                 save_video=False):
 
         # print info about objects
         for x in list_obj_info:
             print(x, "\n")
+            pass
