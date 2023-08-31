@@ -236,7 +236,8 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.3, persist=True, tracker="botsort.yaml", iou=.5)
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.1,
+                                          persist=True, tracker="botsort.yaml", iou=.5)
 
             list_objects = generate_objects(results_pose, results_obj)
 
