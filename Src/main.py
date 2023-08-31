@@ -36,15 +36,12 @@ async def main():
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
     for list_obj_info in detect(vid_path=vid_path,
-                                show_image=True,
                                 zone_poly=zone_poly,
-                                do_man_down=True,
-                                show_keypoints=True,
-                                show_down_onscreen=True,
-                                do_count_objs=True,
-                                show_count_onscreen=True,
+                                show_image=True,
                                 show_box=True,
-                                do_count_zone=True,
+                                show_tracks=False,
+                                show_keypoints=False,
+                                show_count_onscreen=True,
                                 show_zone_onscreen=True,
                                 save_video=False):
 
@@ -57,7 +54,7 @@ async def main():
 
                 while True:
                     # Build the message with simulated telemetry values.
-                    message = Message(object_info)
+                    message = Message("sdsds")
 
                     # Add standard message properties
                     message.message_id = uuid.uuid4()
