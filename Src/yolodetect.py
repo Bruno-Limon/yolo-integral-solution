@@ -232,7 +232,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
         success, frame = cap.read()
         # how many frames to skip
         frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
-        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
@@ -303,7 +303,7 @@ if __name__ == "__main__":
                                 show_keypoints=False,
                                 show_count_onscreen=False,
                                 show_zone_onscreen=False,
-                                save_video=False):
+                                save_video=True):
 
         # print info about objects
         for x in list_obj_info:
