@@ -210,8 +210,8 @@ def count_objs(frame, list_objects, show_count_onscreen):
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoints, show_count_onscreen, show_zone_onscreen, save_video):
-    model_pose = YOLO("yolov8s-pose.pt") # pose detection model
-    model_obj = YOLO("yolov8s.pt") # tracking and object detection
+    model_pose = YOLO("yolov8n-pose.pt") # pose detection model
+    model_obj = YOLO("yolov8n.pt") # tracking and object detection
 
     # Store the track history
     track_history = defaultdict(lambda: [])
@@ -284,6 +284,7 @@ if __name__ == "__main__":
 
     # video source
     vid_path = '../Data/vid5.mp4'
+    #vid_path = 'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # zone to count people in
     zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
