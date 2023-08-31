@@ -75,7 +75,7 @@ class DetectedObject:
             x, y, w, h = self.bbox_wh
             track = track_history[self.id]
             track.append((float(x), float(y)))  # x, y center point
-            if len(track) > 300:  # how many frames to keep the track
+            if len(track) > 30:  # how many frames to keep the track
                 track.pop(0)
 
             # draw the tracking lines
@@ -232,7 +232,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
         success, frame = cap.read()
         # how many frames to skip
         frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
-        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
@@ -244,8 +244,8 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
             # show bounding boxes
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
             # draw tracks
-            #[obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
-            list_objects[0].draw_tracks(frame, show_tracks, track_history)
+            [obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
+            #list_objects[0].draw_tracks(frame, show_tracks, track_history)
             # detect man down
             #[obj.detect_is_down(frame, show_keypoints) for obj in list_objects]
             # count objects and their time in a zone
