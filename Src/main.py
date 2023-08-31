@@ -48,7 +48,7 @@ async def main():
                                 show_zone_onscreen=True,
                                 save_video=False):
 
-        for x in list_obj_info:
+        for object_info in list_obj_info:
             try:
                 client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
                 await client.connect()
@@ -57,7 +57,7 @@ async def main():
 
                 while True:
                     # Build the message with simulated telemetry values.
-                    message = Message(x)
+                    message = Message(object_info)
 
                     # Add standard message properties
                     message.message_id = uuid.uuid4()

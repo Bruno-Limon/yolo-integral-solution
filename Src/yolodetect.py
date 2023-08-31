@@ -71,7 +71,7 @@ class DetectedObject:
                     fontScale=.5, color=(255,255,255), thickness=1)
 
     def draw_tracks(self, frame, show_tracks, track_history):
-        if show_tracks:
+        if show_tracks and self.label_num == 0:
             x, y, w, h = self.bbox_wh
             track = track_history[self.id]
             track.append((float(x), float(y)))  # x, y center point
@@ -131,7 +131,6 @@ class DetectedObject:
             # while self.is_in_zone == True:
             #     # contare tempo
             #     # self.time_in_zone =+ tempo
-            #     pass
 
         for obj in (obj for obj in list_objects if obj.label_num == 0):
             x, y, w, h = obj.bbox_wh
@@ -211,8 +210,11 @@ def count_objs(frame, list_objects, show_count_onscreen):
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoints, show_count_onscreen, show_zone_onscreen, save_video):
-    model_pose = YOLO("yolov8s-pose.pt")
-    model_obj = YOLO("yolov8s.pt")
+    model_pose = YOLO("yolov8s-pose.pt") # pose detection model
+    model_obj = YOLO("yolov8s.pt") # tracking and object detection
+
+    # Store the track history
+    track_history = defaultdict(lambda: [])
 
     frame_counter = 0
     xx = 0
@@ -225,14 +227,11 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
         output = cv2.VideoWriter("output-demo.avi", cv2.VideoWriter_fourcc(*'MPEG'),
                                  fps=fps, frameSize=(width, height))
 
-    # Store the track history
-    track_history = defaultdict(lambda: [])
-
     while cap.isOpened():
         success, frame = cap.read()
         # how many frames to skip
         frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
-        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
@@ -245,9 +244,8 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
             # draw tracks
             [obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
-            #list_objects[0].draw_tracks(frame, show_tracks, track_history)
             # detect man down
-            #[obj.detect_is_down(frame, show_keypoints) for obj in list_objects]
+            [obj.detect_is_down(frame, show_keypoints) for obj in list_objects]
             # count objects and their time in a zone
             [obj.count_zone(frame, cap, list_objects, zone_poly, show_zone_onscreen) for obj in list_objects]
             # count objects
@@ -285,7 +283,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid6.mp4'
+    vid_path = '../Data/vid5.mp4'
 
     # zone to count people in
     zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
@@ -299,11 +297,11 @@ if __name__ == "__main__":
                                 zone_poly=zone_poly,
                                 show_image=True,
                                 show_box=True,
-                                show_tracks=True,
+                                show_tracks=False,
                                 show_keypoints=False,
-                                show_count_onscreen=False,
-                                show_zone_onscreen=False,
-                                save_video=True):
+                                show_count_onscreen=True,
+                                show_zone_onscreen=True,
+                                save_video=False):
 
         # print info about objects
         for x in list_obj_info:
