@@ -244,8 +244,8 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
-            results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.1,
+            results_pose = model_pose.predict(frame, stream=True, verbose=False, conf=.40)
+            results_obj = model_obj.track(frame, stream=True, verbose=False, conf=.1,
                                           persist=True, tracker="botsort.yaml", iou=.5)
 
             list_objects = generate_objects(results_pose, results_obj)
@@ -305,7 +305,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
 if __name__ == "__main__":
 
     # video source
-    vid_path = '../Data/vid5.mp4'
+    vid_path = '../Data/vid7.mp4'
     #vid_path = 'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # zone to count people in
@@ -323,8 +323,8 @@ if __name__ == "__main__":
                                 show_tracks=True,
                                 show_keypoints=False,
                                 show_count_onscreen=True,
-                                show_zone_onscreen=True,
-                                show_time_zone=True,
+                                show_zone_onscreen=False,
+                                show_time_zone=False,
                                 save_video=False):
 
         # print info about objects
