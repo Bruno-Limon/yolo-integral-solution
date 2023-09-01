@@ -43,6 +43,7 @@ async def main():
                                 show_keypoints=False,
                                 show_count_onscreen=True,
                                 show_zone_onscreen=True,
+                                show_time_zone=False,
                                 save_video=False):
 
         for object_info in list_obj_info:
@@ -77,6 +78,7 @@ async def main():
                 print('Shutting down device client')
 
 if __name__ == '__main__':
+
     print("IoT Hub simulated device")
     print("Press Ctrl-C to exit")
     try:

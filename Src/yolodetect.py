@@ -53,7 +53,6 @@ class DetectedObject:
         self.keypoints = keypoints
         self.is_down = False
         self.is_in_zone = False
-        self.time_in_zone = 0
         self.info = {}
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
@@ -109,9 +108,9 @@ class DetectedObject:
                 self.is_down = True
                 x, y, w, h = self.bbox_wh
                 x1, y1, x2, y2 = self.bbox_xy
-                cv2.rectangle(img=frame, pt1=(x1-thickness, y1-50), pt2=(x2+thickness, y2-(h+20)),
+                cv2.rectangle(img=frame, pt1=(x1-thickness, y1+(h-50)), pt2=(x2+thickness, y2),
                             color=(0,0,0), thickness=-1)
-                cv2.putText(img=frame, text="FALLEN", org=(x1, y1-25), fontFace=font,
+                cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=font,
                             fontScale=1, color=(255,255,255), thickness=1)
 
     # determines if person is inside a defined area or not
@@ -150,8 +149,7 @@ class DetectedObject:
                     "bbox_xywh": self.bbox_wh,
                     "keypoints": 0,
                     "is_down": self.is_down,
-                    "is_in_zone": self.is_in_zone,
-                    "time_in_zone": self.time_in_zone
+                    "is_in_zone": self.is_in_zone
         }
 
         return self.info
@@ -217,10 +215,17 @@ def count_zone(frame, list_objects, poly):
 ###################################################################################
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
-def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoints, show_count_onscreen,
-           show_zone_onscreen, show_time_zone, save_video):
+def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
+           show_count_onscreen, show_zone_onscreen, save_video):
     model_pose = YOLO("yolov8n-pose.pt") # pose detection model
     model_obj = YOLO("yolov8n.pt") # tracking and object detection
+
+    # zone to count people in
+    zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
+                          [1270, 570], #x2, y2 = right upper corner
+                          [1265, 710], #x3, y3 = right lower corner
+                          [430, 710]], np.int32) #x4, y4 = left lower corner
+    zone_poly = zone_poly.reshape((-1, 1, 2))
 
     # store the track history
     track_history = defaultdict(lambda: [])
@@ -244,8 +249,8 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
-            results_pose = model_pose.predict(frame, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, stream=True, verbose=False, conf=.1,
+            results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.1,
                                           persist=True, tracker="botsort.yaml", iou=.5)
 
             list_objects = generate_objects(results_pose, results_obj)
@@ -268,10 +273,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
             # count people in zone
             if show_zone_onscreen: count_zone(frame, list_objects, zone_poly)
             # show time inside zone on top of people's boxes
-            if show_time_zone: [obj.draw_time_zone(frame,
-                                                   zone_poly,
-                                                   time_in_zone,
-                                                   fps) for obj in list_objects]
+            [obj.draw_time_zone(frame, zone_poly, time_in_zone, fps) for obj in list_objects]
 
             # get object info
             obj_info = []
@@ -303,31 +305,19 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
 ###################################################################################
 
 if __name__ == "__main__":
-
-    # video source
-    vid_path = '../Data/vid7.mp4'
-    #vid_path = 'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
-
-    # zone to count people in
-    zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
-                          [1270, 570], #x2, y2 = right upper corner
-                          [1265, 710], #x3, y3 = right lower corner
-                          [430, 710]], np.int32) #x4, y4 = left lower corner
-    zone_poly = zone_poly.reshape((-1, 1, 2))
+    #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path=vid_path,
-                                zone_poly=zone_poly,
+    for list_obj_info in detect(vid_path='../Data/vid2.mp4',
                                 show_image=True,
                                 show_box=True,
                                 show_tracks=True,
                                 show_keypoints=False,
                                 show_count_onscreen=True,
-                                show_zone_onscreen=False,
-                                show_time_zone=False,
+                                show_zone_onscreen=True,
                                 save_video=False):
 
         # print info about objects
         for x in list_obj_info:
-            #print(x, "\n")
+            print(x, "\n")
             pass
