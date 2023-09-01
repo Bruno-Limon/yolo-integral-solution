@@ -43,16 +43,17 @@ labels_dict = {0: ["person", (209,209,0)],
 # class to instantiate every object detected and its attributes,
 # in case of car or bicycle set "keypoints" to 0
 class DetectedObject:
-    def __init__(self, id, label_num, label_str, conf, bbox_xy, bbox_wh, keypoints):
+    def __init__(self, id, label_num, label_str, conf, bbox_xy, bbox_wh):
         self.id = id
         self.label_num = label_num
         self.label_str = label_str
         self.conf = conf
         self.bbox_xy = bbox_xy # left upper corner and right lower corner
         self.bbox_wh = bbox_wh # center of bbox together with width and height
-        self.keypoints = keypoints
+        self.keypoints = 0
         self.is_down = False
         self.is_in_zone = False
+        self.time_in_zone = 0
         self.info = {}
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
@@ -84,34 +85,36 @@ class DetectedObject:
 
     # detects if someone is on the ground by using the keypoints of each object and measuring the angle of the
     # person's body with respect to the ground
-    def get_is_down(self, frame, show_keypoints):
-        if self.label_num == 0:
+    def get_is_down(self, frame, kp, show_keypoints):
+        if kp.size > 0:
             # i is the number of the person, j is the body part
-            for i in range(len(self.keypoints)):
-                feet_xy = [int((self.keypoints[i][16][0] + self.keypoints[i][15][0])/2),
-                           int((self.keypoints[i][16][1] + self.keypoints[i][15][1])/2)]
+            for i in range(len(kp)):
+                feet_xy = [int((kp[i][16][0] + kp[i][15][0])/2),
+                           int((kp[i][16][1] + kp[i][15][1])/2)]
 
                 # draw keypoints on the screen
                 if show_keypoints:
                     for j in range(17):
-                        cv2.circle(img=frame, center=(self.keypoints[i][j][0], self.keypoints[i][j][1]), radius=2,
+                        cv2.circle(img=frame, center=(kp[i][j][0], kp[i][j][1]), radius=2,
                                    color=(0,255,0), thickness=thickness)
-                        cv2.line(img=frame, pt1=(self.keypoints[i][0][0], self.keypoints[i][0][1]),
+                        cv2.line(img=frame, pt1=(kp[i][0][0], kp[i][0][1]),
                                  pt2=(feet_xy[0], feet_xy[1]), color=(255,0,255), thickness=thickness)
 
-            # angle with respect to the ground
-            angle = math.degrees(math.atan2(feet_xy[1] - self.keypoints[i][0][1],
-                                            feet_xy[0] - self.keypoints[i][0][0]))
+                # angle with respect to the ground
+                angle = math.degrees(math.atan2(feet_xy[1] - kp[i][0][1],
+                                                feet_xy[0] - kp[i][0][0]))
 
-            # the angle determines if the person is on the ground or not
-            if ((angle < 50) or (angle > 150)):
-                self.is_down = True
-                x, y, w, h = self.bbox_wh
-                x1, y1, x2, y2 = self.bbox_xy
-                cv2.rectangle(img=frame, pt1=(x1-thickness, y1+(h-50)), pt2=(x2+thickness, y2),
-                            color=(0,0,0), thickness=-1)
-                cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=font,
-                            fontScale=1, color=(255,255,255), thickness=1)
+                self.keypoints = angle
+
+                # the angle determines if the person is on the ground or not
+                if ((angle < 50) or (angle > 150)):
+                    self.is_down = True
+                    x, y, w, h = self.bbox_wh
+                    x1, y1, x2, y2 = self.bbox_xy
+                    cv2.rectangle(img=frame, pt1=(x1-thickness, y1+(h-50)), pt2=(x2+thickness, y2),
+                                color=(0,0,0), thickness=-1)
+                    cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=font,
+                                fontScale=1, color=(255,255,255), thickness=1)
 
     # determines if person is inside a defined area or not
     def get_is_in_zone(self, poly):
@@ -137,6 +140,8 @@ class DetectedObject:
             cv2.putText(img=frame, text=str(time), org=(x1+int((w/3)), y1-25), fontFace=font,
                                 fontScale=.5, color=(255,255,255), thickness=2)
 
+            self.time_in_zone = time
+
     # prints or returns all info about the detected objects in each frame
     def obj_info(self):
         #for key in BODY_MAP:
@@ -147,42 +152,13 @@ class DetectedObject:
                     "class": self.label_str,
                     "confidence": self.conf,
                     "bbox_xywh": self.bbox_wh,
-                    "keypoints": 0,
+                    "keypoints": self.keypoints,
                     "is_down": self.is_down,
-                    "is_in_zone": self.is_in_zone
+                    "is_in_zone": self.is_in_zone,
+                    "time_in_zone": self.time_in_zone
         }
 
         return self.info
-
-# dynamically creating objects from yolo detection and pose estimation
-def generate_objects(results_pose, results_obj):
-    list_objects = []
-    # pose detection results
-    for r in results_pose:
-        kp = r.keypoints.xy.numpy().astype(np.int32).tolist()
-
-    # object detection results
-    for r in results_obj:
-        boxes = r.boxes.numpy()
-
-        # only creating an object if it belongs to the chosen classes
-        for box in (x for x in boxes if x.cls in [0,1,2]):
-            if box.cls == 0: # == person
-                keypoints = kp
-            else:
-                # if object is not a person, keypoints = 0
-                keypoints = 0
-            if box.id != None:
-                list_objects.append(DetectedObject(id=int(box.id),
-                                                   label_num=int(box.cls),
-                                                   label_str=labels_dict[int(box.cls)][0],
-                                                   conf=round(float(box.conf),2),
-                                                   bbox_xy=box.xyxy[0].astype(np.int32).tolist(),
-                                                   bbox_wh=box.xywh[0].astype(np.int32).tolist(),
-                                                   keypoints=keypoints
-                                                   )
-                                    )
-    return list_objects
 
 # counting overall objects on screen, including people, bikes and cars
 def count_objs(frame, list_objects):
@@ -211,6 +187,27 @@ def count_zone(frame, list_objects, poly):
         cv2.rectangle(img=frame, pt1=(850, 670), pt2=(900, 710), color=(255,0,0), thickness=-1)
         cv2.putText(img=frame, text=str(count_people_polygon), org=(865, 700), fontFace=font,
                     fontScale=1, color=(255,255,255), thickness=2)
+
+# dynamically creating objects from yolo detection and pose estimation
+def generate_objects(results_obj):
+    list_objects = []
+
+    # object detection results
+    for r in results_obj:
+        boxes = r.boxes.numpy()
+
+        # only creating an object if it belongs to the chosen classes
+        for box in (x for x in boxes if x.cls in [0,1,2]):
+            if box.id != None:
+                list_objects.append(DetectedObject(id=int(box.id),
+                                                   label_num=int(box.cls),
+                                                   label_str=labels_dict[int(box.cls)][0],
+                                                   conf=round(float(box.conf),2),
+                                                   bbox_xy=box.xyxy[0].astype(np.int32).tolist(),
+                                                   bbox_wh=box.xywh[0].astype(np.int32).tolist()
+                                                   )
+                                    )
+    return list_objects
 
 ###################################################################################
 
@@ -245,7 +242,7 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
 
     while cap.isOpened():
         success, frame = cap.read()
-        frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
+        frame_counter += fps/4 # every value corresponding to the vid's fps advances the frame by 1 sec
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
@@ -253,14 +250,17 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
             results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.1,
                                           persist=True, tracker="botsort.yaml", iou=.5)
 
-            list_objects = generate_objects(results_pose, results_obj)
+            list_objects = generate_objects(results_obj)
+
+            for r in results_pose: kp = r.keypoints.xy.numpy().astype(np.int32)
+            #print(kp, "\n")
 
             # show bounding boxes
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
             # draw tracks
             [obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
             # detect man down
-            [obj.get_is_down(frame, show_keypoints) for obj in list_objects]
+            [obj.get_is_down(frame, kp, show_keypoints) for obj in list_objects]
 
             # for every person inside an area, count the number of frames
             for obj in list_objects:
@@ -308,11 +308,11 @@ if __name__ == "__main__":
     #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path='../Data/vid2.mp4',
+    for list_obj_info in detect(vid_path='../Data/vid1.mp4',
                                 show_image=True,
                                 show_box=True,
                                 show_tracks=True,
-                                show_keypoints=False,
+                                show_keypoints=True,
                                 show_count_onscreen=True,
                                 show_zone_onscreen=True,
                                 save_video=False):

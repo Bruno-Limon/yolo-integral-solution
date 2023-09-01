@@ -25,25 +25,13 @@ MESSAGE_TIMEOUT = 10
 TEMP_ALERT_THRESHOLD = 30
 
 async def main():
-    # video source
-    vid_path = '../Data/vid2.mp4'
-
-    # zone to count people in
-    zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
-                          [1270, 570], #x2, y2 = right upper corner
-                          [1265, 710], #x3, y3 = right lower corner
-                          [430, 710]], np.int32) #x4, y4 = left lower corner
-    zone_poly = zone_poly.reshape((-1, 1, 2))
-
-    for list_obj_info in detect(vid_path=vid_path,
-                                zone_poly=zone_poly,
+    for list_obj_info in detect(vid_path= '../Data/vid2.mp4',
                                 show_image=True,
                                 show_box=True,
                                 show_tracks=False,
                                 show_keypoints=False,
                                 show_count_onscreen=True,
                                 show_zone_onscreen=True,
-                                show_time_zone=False,
                                 save_video=False):
 
         for object_info in list_obj_info:
