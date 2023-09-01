@@ -70,6 +70,7 @@ class DetectedObject:
         cv2.putText(img=frame, text=f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
                     fontScale=.5, color=(255,255,255), thickness=1)
 
+    # draw a line following the movement of detected people during a certain amount of frames
     def draw_tracks(self, frame, show_tracks, track_history):
         if show_tracks and self.label_num == 0:
             x, y, w, h = self.bbox_wh
@@ -78,7 +79,6 @@ class DetectedObject:
             if len(track) > 60:  # how many frames to keep the track
                 track.pop(0)
 
-            #print(self.id, track, "\n")
             # draw the tracking lines
             points = np.hstack(track).astype(np.int32).reshape((-1,1,2))
             cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
@@ -131,9 +131,11 @@ class DetectedObject:
 
         point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
         if self.label_num == 0 and (point_in_polygon == 1.0 or point_in_polygon == 0.0):
-            time = time_in_zone[self.id]
-            time = round(time/fps, 2)
-            cv2.putText(img=frame, text=str(time), org=(x1+int((w/4)), y1-25), fontFace=font,
+            time = time_in_zone[self.id] # access dict with id and amount of time in zone
+            time = round(time/fps, 1)
+            cv2.rectangle(img=frame, pt1=(x1-thickness, y1-40), pt2=(x2+thickness, y2-(h+20)),
+                            color=(0,0,0), thickness=-1)
+            cv2.putText(img=frame, text=str(time), org=(x1+int((w/3)), y1-25), fontFace=font,
                                 fontScale=.5, color=(255,255,255), thickness=2)
 
     # prints or returns all info about the detected objects in each frame
@@ -253,7 +255,7 @@ def detect(vid_path, zone_poly, show_image, show_box, show_tracks, show_keypoint
             # draw tracks
             [obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
             # detect man down
-            #[obj.get_is_down(frame, show_keypoints) for obj in list_objects]
+            [obj.get_is_down(frame, show_keypoints) for obj in list_objects]
 
             # for every person inside an area, count the number of frames
             for obj in list_objects:
@@ -323,7 +325,7 @@ if __name__ == "__main__":
                                 show_count_onscreen=True,
                                 show_zone_onscreen=True,
                                 show_time_zone=True,
-                                save_video=True):
+                                save_video=False):
 
         # print info about objects
         for x in list_obj_info:
