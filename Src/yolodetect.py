@@ -267,7 +267,6 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
             list_objects = generate_objects(results_obj)
 
             for r in results_pose: kp = r.keypoints.xy.numpy().astype(np.int32)
-            #print(kp, "\n")
 
             # show bounding boxes
             if show_box: [obj.draw_boxes(frame) for obj in list_objects]
@@ -332,6 +331,6 @@ if __name__ == "__main__":
                                 save_video=False):
 
         # print info about objects
-        for x in list_obj_info:
-            print(x, "\n")
+        for obj_info in list_obj_info:
+            print(obj_info, "\n")
             pass
