@@ -323,7 +323,7 @@ if __name__ == "__main__":
     #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path='../Data/vid5.mp4',
+    for list_obj_info in detect(vid_path='../Data/vid2.mp4',
                                 show_image=True,
                                 show_box=True,
                                 show_tracks=True,
