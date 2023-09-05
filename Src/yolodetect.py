@@ -86,6 +86,7 @@ class DetectedObject:
     # detects if someone is on the ground by using the keypoints of each object and measuring the angle of the
     # person's body with respect to the ground
     def get_is_down(self, frame, kp, show_keypoints):
+        colors = [(0,0,255), (0,255,0)]
         if kp.size > 0:
             # i is the number of the person, j is the body part
             for i in range(len(kp)):
@@ -96,15 +97,13 @@ class DetectedObject:
                 if show_keypoints:
                     for j in range(17):
                         cv2.circle(img=frame, center=(kp[i][j][0], kp[i][j][1]), radius=2,
-                                   color=(0,255,0), thickness=thickness)
+                                   color=colors[0], thickness=thickness)
                         cv2.line(img=frame, pt1=(kp[i][0][0], kp[i][0][1]),
                                  pt2=(feet_xy[0], feet_xy[1]), color=(255,0,255), thickness=thickness)
 
                 # angle with respect to the ground
                 angle = math.degrees(math.atan2(feet_xy[1] - kp[i][0][1],
                                                 feet_xy[0] - kp[i][0][0]))
-
-                self.keypoints = angle
 
                 # the angle determines if the person is on the ground or not
                 if ((angle < 50) or (angle > 150)):
