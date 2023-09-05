@@ -50,7 +50,6 @@ class DetectedObject:
         self.conf = conf
         self.bbox_xy = bbox_xy # left upper corner and right lower corner
         self.bbox_wh = bbox_wh # center of bbox together with width and height
-        self.keypoints = 0
         self.is_down = False
         self.is_in_zone = False
         self.time_in_zone = 0
@@ -151,7 +150,6 @@ class DetectedObject:
                     "class": self.label_str,
                     "confidence": self.conf,
                     "bbox_xywh": self.bbox_wh,
-                    "keypoints": self.keypoints,
                     "is_down": self.is_down,
                     "is_in_zone": self.is_in_zone,
                     "time_in_zone": self.time_in_zone
@@ -214,7 +212,9 @@ def generate_objects(results_obj):
 def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
            show_count_onscreen, show_zone_onscreen, save_video):
     model_pose = YOLO("yolov8n-pose.pt") # pose detection model
+    #model_pose.to('cuda')
     model_obj = YOLO("yolov8n.pt") # tracking and object detection
+    #model_obj.to('cuda')
 
     # zone to count people in
     zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
@@ -245,9 +245,24 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
-            results_pose = model_pose.predict(frame, save=False, stream=True, verbose=False, conf=.40)
-            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.1,
-                                          persist=True, tracker="botsort.yaml", iou=.5)
+            results_pose = model_pose.predict(frame,
+                                              save=False,
+                                              stream=True,
+                                              verbose=False,
+                                              conf=.40,
+                                              #device='gpu'
+                                              )
+
+            results_obj = model_obj.track(frame,
+                                          save=False,
+                                          stream=True,
+                                          verbose=False,
+                                          conf=.1,
+                                          persist=True,
+                                          tracker="botsort.yaml",
+                                          iou=.5,
+                                          #device='gpu'
+                                          )
 
             list_objects = generate_objects(results_obj)
 
@@ -307,11 +322,11 @@ if __name__ == "__main__":
     #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
 
     # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path='../Data/vid1.mp4',
+    for list_obj_info in detect(vid_path='../Data/vid5.mp4',
                                 show_image=True,
                                 show_box=True,
                                 show_tracks=True,
-                                show_keypoints=True,
+                                show_keypoints=False,
                                 show_count_onscreen=True,
                                 show_zone_onscreen=True,
                                 save_video=False):
