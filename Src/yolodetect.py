@@ -211,9 +211,11 @@ def generate_objects(results_obj):
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
 def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
            show_count_onscreen, show_zone_onscreen, save_video):
-    model_pose = YOLO("yolov8n-pose.pt") # pose detection model
+    model_pose = YOLO("yolov8n-pose.onnx") # pose detection model
+    # model_pose.export(format='engine')
     #model_pose.to('cuda')
-    model_obj = YOLO("yolov8n.pt") # tracking and object detection
+    model_obj = YOLO("yolov8n.onnx") # tracking and object detection
+    #model_obj.export(format='engine')
     #model_obj.to('cuda')
 
     # zone to count people in
