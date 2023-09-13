@@ -194,7 +194,7 @@ class DetectedObject:
                      "is_down": self.is_down,
                      "is_in_zone": self.is_in_zone,
                      "time_in_zone": self.time_in_zone,
-                    "num_people": number_objs[0],
+                     "num_people": number_objs[0],
                      "num_bikes": number_objs[1],
                      "num_cars": number_objs[2],
                      "people_in_zone": number_people_zone,
