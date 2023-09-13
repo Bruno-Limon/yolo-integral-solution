@@ -202,7 +202,8 @@ class DetectedObject:
                      "people_leave": len(leaving)
         }
 
-        return self.info
+        json_obj = json.dumps(obj=self.info)
+        return json_obj
 
 # counting overall objects on screen, including people, bikes and cars
 def count_objs(frame, list_objects):
@@ -268,16 +269,13 @@ def detect(vid_path, show_image, save_video):
     model_obj = YOLO("yolov8n.pt") # tracking and object detection
 
     LOG_KW = "LOG"
-    print(f"{LOG_KW}: starting detection")
-    print(f"{LOG_KW}: download models")
+    print(f"{LOG_KW}: model loaded, starting detection")
 
     # store the track history
     track_history_dict = defaultdict(lambda: [])
 
     # store the amount of frames spent inside zone
     time_in_zone_dict = defaultdict(int)
-
-    print(f"{LOG_KW}: capture input")
 
     frame_counter = 0
     cap = cv2.VideoCapture(vid_path, cv2.CAP_FFMPEG)
@@ -295,7 +293,7 @@ def detect(vid_path, show_image, save_video):
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
-            print(f"{LOG_KW}: compute detection")
+            print(f"{LOG_KW}: video detected")
             results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.4,
                                           persist=True, tracker="botsort.yaml", iou=.5, classes=[0,1,2])
             results_obj = [x.cpu() for x in results_obj]
@@ -333,7 +331,7 @@ def detect(vid_path, show_image, save_video):
             for obj in list_objects:
                 x = obj.obj_info(number_objs, number_people_zone)
                 obj_info.append(x)
-            print(f"{LOG_KW}_result:", "\n")
+            print(f"{LOG_KW}: results:", "\n")
             yield obj_info
 
             # write output video
@@ -377,5 +375,4 @@ if __name__ == "__main__":
 
         # print info about objects
         for obj_info in list_obj_info:
-            json_object = json.dumps(obj=obj_info)
-            print(json_object, "\n")
+            print(obj_info, "\n")
