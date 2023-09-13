@@ -1,11 +1,15 @@
-import math
-import os
 from datetime import datetime
 from collections import defaultdict
+import os
+from dotenv import load_dotenv
 
 from ultralytics import YOLO
 import numpy as np
+import torch
 import cv2
+import gc
+import json
+
 
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
@@ -15,30 +19,38 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 font = cv2.FONT_HERSHEY_SIMPLEX
 thickness = 2
 
-# mapping of keypoints with their respective position in the array returned by "results.keypoints"
-BODY_MAP = {"nose": 0, "eye_sx": 1, "eye_dx": 2, "ear_sx": 3,
-            "ear_dx": 4, "shoulder_sx": 5, "shoulder_dx": 6,
-            "elbow_sx": 7, "elbow_dx": 8, "wrist_sx": 9,
-            "wrist_dx": 10, "hip_sx": 11, "hip_dx": 12,
-            "knee_sx": 13, "knee_dx": 14, "foot_sx": 15, "foot_dx": 16
-}
-
-# empty dictionary to populate using x,y coordinates of keypoints
-kp_position_dict = {"nose": [], "eye_sx": [], "eye_dx": [],
-                   "ear_sx": [], "ear_dx": [], "shoulder_sx": [],
-                   "shoulder_dx": [], "elbow_sx": [], "elbow_dx": [],
-                   "wrist_sx": [], "wrist_dx": [], "hip_sx": [],
-                   "hip_dx": [], "knee_sx": [], "knee_dx": [],
-                   "foot_sx": [], "foot_dx": []
-}
-
 # dictionary to map the class number obtained with yolo with its name and color for bounding boxes
 labels_dict = {0: ["person", (209,209,0)],
                1: ["bicycle", (47,139,237)],
-               2: ["car", (42,237,139)]
-}
+               2: ["car", (42,237,139)]}
 
-###################################################################################
+# zone to count people in
+zone_poly = np.array([[480, 160], #x1, y1 = left upper corner
+                      [780, 200], #x2, y2 = right upper corner
+                      [580, 380], #x3, y3 = right lower corner
+                      [200, 280]], np.int32) #x4, y4 = left lower corner
+zone_poly = zone_poly.reshape((-1, 1, 2))
+
+# dictionaries containing id of people entering/leaving and sets to count them
+people_entering_dict = {}
+entering = set()
+people_leaving_dict = {}
+leaving = set()
+
+#first threshold of "door"
+door_poly = np.array([[200, 280], #x1, y1 = left upper corner
+                      [440, 355], #x2, y2 = right upper corner
+                      [430, 365], #x3, y3 = right lower corner
+                      [185, 290]], np.int32) #x4, y4 = left lower corner
+door_poly = door_poly.reshape((-1, 1, 2))
+
+# second threshold
+door2_poly = np.array([[180, 300], #x1, y1 = left upper corner
+                       [420, 375], #x2, y2 = right upper corner
+                       [410, 385], #x3, y3 = right lower corner
+                       [165, 310]], np.int32) #x4, y4 = left lower corner
+door2_poly = door2_poly.reshape((-1, 1, 2))
+
 
 # class to instantiate every object detected and its attributes,
 # in case of car or bicycle set "keypoints" to 0
@@ -65,15 +77,18 @@ class DetectedObject:
         cv2.rectangle(img=frame, pt1=(x1-thickness, y1-20), pt2=(x2+thickness, y2-h),
                       color=labels_dict[int(self.label_num)][1], thickness=-1)
 
+        # central lower point of bounding box
+        cv2.circle(img=frame, center=(x, y+int((h/2))), radius=4, color=(0,255,0), thickness=-1)
+
         # information about each object, can contain any class attribute
         cv2.putText(img=frame, text=f"id:{self.id} {self.conf}", org=(x1, y1-5), fontFace=font,
                     fontScale=.5, color=(255,255,255), thickness=1)
 
     # draw a line following the movement of detected people during a certain amount of frames
-    def draw_tracks(self, frame, show_tracks, track_history):
-        if show_tracks and self.label_num == 0:
+    def draw_tracks(self, frame, track_history_dict):
+        if self.label_num == 0:
             x, y, w, h = self.bbox_wh
-            track = track_history[self.id]
+            track = track_history_dict[self.id]
             track.append((float(x), float(y)))  # x, y center point
             if len(track) > 60:  # how many frames to keep the track
                 track.pop(0)
@@ -82,37 +97,18 @@ class DetectedObject:
             points = np.hstack(track).astype(np.int32).reshape((-1,1,2))
             cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
 
-    # detects if someone is on the ground by using the keypoints of each object and measuring the angle of the
-    # person's body with respect to the ground
-    def get_is_down(self, frame, kp, show_keypoints):
-        colors = [(0,0,255), (0,255,0)]
-        if kp.size > 0:
-            # i is the number of the person, j is the body part
-            for i in range(len(kp)):
-                feet_xy = [int((kp[i][16][0] + kp[i][15][0])/2),
-                           int((kp[i][16][1] + kp[i][15][1])/2)]
+    # detect man down, using the width and height of bounding box, if w > h, then man_down
+    def get_is_down(self, frame):
+        x, y, w, h = self.bbox_wh
+        x1, y1, x2, y2 = self.bbox_xy
 
-                # draw keypoints on the screen
-                if show_keypoints:
-                    for j in range(17):
-                        cv2.circle(img=frame, center=(kp[i][j][0], kp[i][j][1]), radius=2,
-                                   color=colors[0], thickness=thickness)
-                        cv2.line(img=frame, pt1=(kp[i][0][0], kp[i][0][1]),
-                                 pt2=(feet_xy[0], feet_xy[1]), color=(255,0,255), thickness=thickness)
-
-                # angle with respect to the ground
-                angle = math.degrees(math.atan2(feet_xy[1] - kp[i][0][1],
-                                                feet_xy[0] - kp[i][0][0]))
-
-                # the angle determines if the person is on the ground or not
-                if ((angle < 50) or (angle > 150)):
-                    self.is_down = True
-                    x, y, w, h = self.bbox_wh
-                    x1, y1, x2, y2 = self.bbox_xy
-                    cv2.rectangle(img=frame, pt1=(x1-thickness, y1+(h-50)), pt2=(x2+thickness, y2),
-                                color=(0,0,0), thickness=-1)
-                    cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=font,
-                                fontScale=1, color=(255,255,255), thickness=1)
+        # the angle determines if the person is on the ground or not
+        if w > h and self.label_num == 0:
+            self.is_down = True
+            cv2.rectangle(img=frame, pt1=(x1-thickness, y1+(h-50)), pt2=(x2+thickness, y2),
+                        color=(0,0,0), thickness=-1)
+            cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=font,
+                        fontScale=1, color=(255,255,255), thickness=1)
 
     # determines if person is inside a defined area or not
     def get_is_in_zone(self, poly):
@@ -125,13 +121,13 @@ class DetectedObject:
         return self.id, self.is_in_zone
 
     # shows amount of time a person has spent inside area
-    def draw_time_zone(self, frame, poly, time_in_zone, fps):
+    def draw_time_zone(self, frame, poly, time_in_zone_dict, fps):
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
         point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
         if self.label_num == 0 and (point_in_polygon == 1.0 or point_in_polygon == 0.0):
-            time = time_in_zone[self.id] # access dict with id and amount of time in zone
+            time = time_in_zone_dict[self.id] # access dict with id and amount of time in zone
             time = round(time/fps, 1)
             cv2.rectangle(img=frame, pt1=(x1-thickness, y1-40), pt2=(x2+thickness, y2-(h+20)),
                             color=(0,0,0), thickness=-1)
@@ -140,19 +136,62 @@ class DetectedObject:
 
             self.time_in_zone = time
 
-    # prints or returns all info about the detected objects in each frame
-    def obj_info(self):
-        #for key in BODY_MAP:
-        #    kp_position_dict[key] = [self.keypoints[0][BODY_MAP[key]][0], self.keypoints[0][BODY_MAP[key]][1]]
+    # count number of people entering and leaving
+    def enter_leave(self, frame, frame_width):
+        x, y, w, h = self.bbox_wh
 
-        self.info = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
-                    "id": self.id,
-                    "class": self.label_str,
-                    "confidence": self.conf,
-                    "bbox_xywh": self.bbox_wh,
-                    "is_down": self.is_down,
-                    "is_in_zone": self.is_in_zone,
-                    "time_in_zone": self.time_in_zone
+        # lower point of bounding box, representing the feet
+        feet_bb = (x, y+int((h/2)))
+
+        # first threshold of door
+        cv2.polylines(img=frame, pts=[door_poly], isClosed=True, color=(0,204,255), thickness=thickness)
+        # second threshold
+        cv2.polylines(img=frame, pts=[door2_poly], isClosed=True, color=(0,204,255), thickness=thickness)
+
+        # people entering
+        # if feet of person enter 1st threshold, add them to dict of people entering
+        point_in_polygon = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
+        if point_in_polygon >=0:
+            people_entering_dict[self.id] = feet_bb
+
+        # when they step on 2nd threshold, add them to the set
+        if self.id in people_entering_dict:
+            point_in_polygon2 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
+            if point_in_polygon2 >=0:
+                entering.add(self.id)
+
+        # people leaving
+        # same logic as before but reversing the order of the thresholds
+        point_in_polygon3 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
+        if point_in_polygon3 >=0:
+            people_leaving_dict[self.id] = feet_bb
+        if self.id in people_leaving_dict:
+            point_in_polygon4 = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
+            if point_in_polygon4 >=0:
+                leaving.add(self.id)
+
+        cv2.rectangle(img=frame, pt1=(frame_width-110,0), pt2=(frame_width,55), color=(0,0,0), thickness=-1)
+        cv2.putText(img=frame, text=f"Entering: {len(entering)}", org=(frame_width-110, 25), fontFace=font,
+                fontScale=.6, color=(255,255,255), thickness=1)
+        cv2.putText(img=frame, text=f"Leaving: {len(leaving)}", org=(frame_width-110, 50), fontFace=font,
+                fontScale=.6, color=(255,255,255), thickness=1)
+
+    # prints or returns all info about the detected objects in each frame
+    def obj_info(self, number_objs, number_people_zone):
+        self.info = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                     "id": self.id,
+                     "class": self.label_str,
+                     "confidence": self.conf,
+                     "bbox_xywh": self.bbox_wh,
+                     "is_down": self.is_down,
+                     "is_in_zone": self.is_in_zone,
+                     "time_in_zone": self.time_in_zone,
+                    "num_people": number_objs[0],
+                     "num_bikes": number_objs[1],
+                     "num_cars": number_objs[2],
+                     "people_in_zone": number_people_zone,
+                     "people_enter": len(entering),
+                     "people_leave": len(leaving)
         }
 
         return self.info
@@ -172,18 +211,20 @@ def count_objs(frame, list_objects):
     cv2.putText(img=frame, text=f"Cars: {count_car}", org=(0, 75), fontFace=font,
                 fontScale=.6, color=(255,255,255), thickness=1)
 
-def count_zone(frame, list_objects, poly):
+    return [count_people, count_bike, count_car]
+
+def count_zone(frame, list_objects):
     count_people_polygon = 0
 
     for obj in (obj for obj in list_objects if obj.label_num == 0):
         x, y, w, h = obj.bbox_wh
-        point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
-        if point_in_polygon == 1.0 or point_in_polygon == 0.0: count_people_polygon += 1
+        point_in_polygon = cv2.pointPolygonTest(contour=zone_poly, pt=(x, y+int((h/2))), measureDist=False)
+        if point_in_polygon >= 0:
+            count_people_polygon += 1
 
-        cv2.polylines(img=frame, pts=[poly], isClosed=True, color=(255,0,0), thickness=thickness)
-        cv2.rectangle(img=frame, pt1=(850, 670), pt2=(900, 710), color=(255,0,0), thickness=-1)
-        cv2.putText(img=frame, text=str(count_people_polygon), org=(865, 700), fontFace=font,
-                    fontScale=1, color=(255,255,255), thickness=2)
+        cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=thickness)
+
+    return count_people_polygon
 
 # dynamically creating objects from yolo detection and pose estimation
 def generate_objects(results_obj):
@@ -206,30 +247,27 @@ def generate_objects(results_obj):
                                     )
     return list_objects
 
-###################################################################################
 
 # feed the video soruce and apply yolo models, then call the chosen functions for the different tasks as needed
-def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
-           show_count_onscreen, show_zone_onscreen, save_video):
-    model_pose = YOLO("yolov8n-pose.onnx") # pose detection model
-    # model_pose.export(format='engine')
-    #model_pose.to('cuda')
-    model_obj = YOLO("yolov8n.onnx") # tracking and object detection
-    #model_obj.export(format='engine')
-    #model_obj.to('cuda')
+def detect(vid_path, show_image, save_video):
 
-    # zone to count people in
-    zone_poly = np.array([[460, 570],  #x1, y1 = left upper corner
-                          [1270, 570], #x2, y2 = right upper corner
-                          [1265, 710], #x3, y3 = right lower corner
-                          [430, 710]], np.int32) #x4, y4 = left lower corner
-    zone_poly = zone_poly.reshape((-1, 1, 2))
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        gc.collect()
+
+    model_obj = YOLO("yolov8n.pt") # tracking and object detection
+
+    LOG_KW = "LOG"
+    print(f"{LOG_KW}: starting detection")
+    print(f"{LOG_KW}: download models")
 
     # store the track history
-    track_history = defaultdict(lambda: [])
+    track_history_dict = defaultdict(lambda: [])
 
     # store the amount of frames spent inside zone
-    time_in_zone = defaultdict(int)
+    time_in_zone_dict = defaultdict(int)
+
+    print(f"{LOG_KW}: capture input")
 
     frame_counter = 0
     cap = cv2.VideoCapture(vid_path, cv2.CAP_FFMPEG)
@@ -237,71 +275,64 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    if save_video:
+    if save_video == True:
         output = cv2.VideoWriter("output-demo.avi", cv2.VideoWriter_fourcc(*'MPEG'),
                                  fps=fps, frameSize=(width, height))
 
     while cap.isOpened():
         success, frame = cap.read()
-        frame_counter += fps/4 # every value corresponding to the vid's fps advances the frame by 1 sec
+        frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
         #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
-            results_pose = model_pose.predict(frame,
-                                              save=False,
-                                              stream=True,
-                                              verbose=False,
-                                              conf=.40,
-                                              #device='gpu'
-                                              )
-
-            results_obj = model_obj.track(frame,
-                                          save=False,
-                                          stream=True,
-                                          verbose=False,
-                                          conf=.1,
-                                          persist=True,
-                                          tracker="botsort.yaml",
-                                          iou=.5,
-                                          #device='gpu'
-                                          )
-
+            print(f"{LOG_KW}: compute detection")
+            results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.4,
+                                          persist=True, tracker="botsort.yaml", iou=.5, classes=[0,1,2])
+            results_obj = [x.cpu() for x in results_obj]
             list_objects = generate_objects(results_obj)
 
-            for r in results_pose: kp = r.keypoints.xy.numpy().astype(np.int32)
-
             # show bounding boxes
-            if show_box: [obj.draw_boxes(frame) for obj in list_objects]
+            [obj.draw_boxes(frame) for obj in list_objects]
+
             # draw tracks
-            [obj.draw_tracks(frame, show_tracks, track_history) for obj in list_objects]
+            [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
+
             # detect man down
-            [obj.get_is_down(frame, kp, show_keypoints) for obj in list_objects]
+            [obj.get_is_down(frame) for obj in list_objects]
 
             # for every person inside an area, count the number of frames
             for obj in list_objects:
-                obj_id, obj_is_zone, = obj.get_is_in_zone(zone_poly)
-                if obj_is_zone: time_in_zone[obj_id] += 1
-            #print(time_in_zone)
+                obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
+                if obj_is_in_zone:
+                    time_in_zone_dict[obj_id] += 1
 
             # count objects
-            if show_count_onscreen: count_objs(frame, list_objects)
+            number_objs = count_objs(frame, list_objects)
+
             # count people in zone
-            if show_zone_onscreen: count_zone(frame, list_objects, zone_poly)
+            number_people_zone = count_zone(frame, list_objects)
+
+            # count people entering and leaving a certain area
+            [obj.enter_leave(frame, width) for obj in list_objects]
+
             # show time inside zone on top of people's boxes
-            [obj.draw_time_zone(frame, zone_poly, time_in_zone, fps) for obj in list_objects]
+            [obj.draw_time_zone(frame, zone_poly, time_in_zone_dict, fps) for obj in list_objects]
 
             # get object info
             obj_info = []
             for obj in list_objects:
-                x = obj.obj_info()
+                x = obj.obj_info(number_objs, number_people_zone)
                 obj_info.append(x)
+            print(f"{LOG_KW}_result:", "\n")
             yield obj_info
 
             # write output video
-            if save_video: output.write(frame)
+            if save_video == True:
+                output.write(frame)
 
             # display the annotated frame
-            if show_image: cv2.imshow("Demo", frame)
+            if show_image == True:
+                cv2.imshow("Demo", frame)
 
             # break the loop if 'q' is pressed
             if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -313,26 +344,28 @@ def detect(vid_path, show_image, show_box, show_tracks, show_keypoints,
 
     # release the video capture object and close the display window
     cap.release()
-    if save_video:
+
+    if save_video == True:
         output.release()
+
     cv2.destroyAllWindows()
 
-###################################################################################
+    del model_obj
+    torch.cuda.empty_cache()
+    gc.collect()
+
 
 if __name__ == "__main__":
-    #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1'
+    # load environment variables
+    load_dotenv('../.env')
+    VIDEO_SOURCE = os.getenv(key='VIDEO_SOURCE')
+    SHOW_IMAGE = os.getenv(key='SHOW_IMAGE')
+    SAVE_VIDEO = os.getenv(key='SAVE_VIDEO')
 
     # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path='../Data/vid2.mp4',
-                                show_image=True,
-                                show_box=True,
-                                show_tracks=True,
-                                show_keypoints=False,
-                                show_count_onscreen=True,
-                                show_zone_onscreen=True,
-                                save_video=False):
+    for list_obj_info in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
 
         # print info about objects
         for obj_info in list_obj_info:
-            print(obj_info, "\n")
-            pass
+            json_object = json.dumps(obj=obj_info)
+            print(json_object, "\n")
