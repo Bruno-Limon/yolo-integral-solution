@@ -55,6 +55,7 @@ door2_poly = door2_poly.reshape((-1, 1, 2))
 # class to instantiate every object detected and its attributes,
 # in case of car or bicycle set "keypoints" to 0
 class DetectedObject:
+
     def __init__(self, id, label_num, label_str, conf, bbox_xy, bbox_wh):
         self.id = id
         self.label_num = label_num
@@ -69,6 +70,7 @@ class DetectedObject:
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
     def draw_boxes(self, frame):
+
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
@@ -86,6 +88,7 @@ class DetectedObject:
 
     # draw a line following the movement of detected people during a certain amount of frames
     def draw_tracks(self, frame, track_history_dict):
+
         if self.label_num == 0:
             x, y, w, h = self.bbox_wh
             track = track_history_dict[self.id]
@@ -99,6 +102,7 @@ class DetectedObject:
 
     # detect man down, using the width and height of bounding box, if w > h, then man_down
     def get_is_down(self, frame):
+
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
@@ -112,6 +116,7 @@ class DetectedObject:
 
     # determines if person is inside a defined area or not
     def get_is_in_zone(self, poly):
+
         x, y, w, h = self.bbox_wh
 
         point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
@@ -122,6 +127,7 @@ class DetectedObject:
 
     # shows amount of time a person has spent inside area
     def draw_time_zone(self, frame, poly, time_in_zone_dict, fps):
+
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
@@ -138,6 +144,7 @@ class DetectedObject:
 
     # count number of people entering and leaving
     def enter_leave(self, frame, frame_width):
+
         x, y, w, h = self.bbox_wh
 
         # lower point of bounding box, representing the feet
@@ -178,6 +185,7 @@ class DetectedObject:
 
     # prints or returns all info about the detected objects in each frame
     def obj_info(self, number_objs, number_people_zone):
+
         self.info = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                      "id": self.id,
                      "class": self.label_str,
@@ -214,6 +222,7 @@ def count_objs(frame, list_objects):
     return [count_people, count_bike, count_car]
 
 def count_zone(frame, list_objects):
+
     count_people_polygon = 0
 
     for obj in (obj for obj in list_objects if obj.label_num == 0):
@@ -228,6 +237,7 @@ def count_zone(frame, list_objects):
 
 # dynamically creating objects from yolo detection and pose estimation
 def generate_objects(results_obj):
+
     list_objects = []
 
     # object detection results
