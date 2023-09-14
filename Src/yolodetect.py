@@ -202,7 +202,7 @@ class DetectedObject:
                      "people_leave": len(leaving)
         }
 
-        json_obj = json.dumps(obj=self.info)
+        json_obj = json.dumps(obj=self.info, indent=4)
         return json_obj
 
 # counting overall objects on screen, including people, bikes and cars
