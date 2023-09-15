@@ -184,26 +184,34 @@ class DetectedObject:
                 fontScale=.6, color=(255,255,255), thickness=1)
 
     # prints or returns all info about the detected objects in each frame
-    def obj_info(self, number_objs, number_people_zone):
+    def obj_info(self):
 
-        self.info = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
-                     "id": self.id,
+        self.info = {"id": self.id,
                      "class": self.label_str,
                      "confidence": self.conf,
                      "bbox_xywh": self.bbox_wh,
                      "is_down": self.is_down,
                      "is_in_zone": self.is_in_zone,
                      "time_in_zone": self.time_in_zone,
-                     "num_people": number_objs[0],
-                     "num_bikes": number_objs[1],
-                     "num_cars": number_objs[2],
-                     "people_in_zone": number_people_zone,
-                     "people_enter": len(entering),
-                     "people_leave": len(leaving)
         }
 
-        json_obj = json.dumps(obj=self.info, indent=4)
-        return json_obj
+        return self.info
+
+def send_frame_info(number_objs, number_people_zone, cap, obj_info):
+
+    frame_info_dict = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                       "frame": int(cap.get(cv2.CAP_PROP_POS_FRAMES)),
+                       "num_people": number_objs[0],
+                       "num_bikes": number_objs[1],
+                       "num_cars": number_objs[2],
+                       "people_in_zone": number_people_zone,
+                       "people_enter": len(entering),
+                       "people_leave": len(leaving),
+                       "list_objects": obj_info
+    }
+
+    json_obj = json.dumps(obj=frame_info_dict, indent=4)
+    return json_obj
 
 # counting overall objects on screen, including people, bikes and cars
 def count_objs(frame, list_objects):
@@ -329,10 +337,13 @@ def detect(vid_path, show_image, save_video):
             # get object info
             obj_info = []
             for obj in list_objects:
-                x = obj.obj_info(number_objs, number_people_zone)
+                x = obj.obj_info()
                 obj_info.append(x)
+
+            # get frame info
             print(f"{LOG_KW}: results:", "\n")
-            yield obj_info
+            frame_info_dict = send_frame_info(number_objs, number_people_zone, cap, obj_info)
+            yield frame_info_dict
 
             # write output video
             if save_video == True:
@@ -370,9 +381,6 @@ if __name__ == "__main__":
     SHOW_IMAGE = os.getenv(key='SHOW_IMAGE')
     SAVE_VIDEO = os.getenv(key='SAVE_VIDEO')
 
-    # calling generator that yields a list with info about detected objects
-    for list_obj_info in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
-
-        # print info about objects
-        for obj_info in list_obj_info:
-            print(obj_info, "\n")
+    # calling generator that yields a json object with info about each frame and the objects in it
+    for frame_info in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
+        print(frame_info, "\n")
