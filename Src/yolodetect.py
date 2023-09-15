@@ -1,14 +1,15 @@
 from datetime import datetime
 from collections import defaultdict
-import os
-from dotenv import load_dotenv
-
-from ultralytics import YOLO
 import numpy as np
-import torch
-import cv2
+import os
 import gc
 import json
+
+from ultralytics import YOLO
+import torch
+import cv2
+
+from dotenv import load_dotenv
 
 
 # enable rtsp capture for opencv
@@ -375,6 +376,7 @@ def detect(vid_path, show_image, save_video):
 
 
 if __name__ == "__main__":
+
     # load environment variables
     load_dotenv('../.env')
     VIDEO_SOURCE = os.getenv(key='VIDEO_SOURCE')
