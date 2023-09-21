@@ -8,7 +8,6 @@ import json
 from ultralytics import YOLO
 import torch
 import cv2
-
 from dotenv import load_dotenv
 
 
@@ -298,13 +297,14 @@ def detect(vid_path, show_image, save_video):
 
     while cap.isOpened():
         success, frame = cap.read()
-        frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
-        #cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+        # frame_counter += fps/2 # every value corresponding to the vid's fps advances the frame by 1 sec
+        # cap.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
         if success:
             print(f"{LOG_KW}: video detected")
             results_obj = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.4,
                                           persist=True, tracker="botsort.yaml", iou=.5, classes=[0,1,2])
+
             results_obj = [x.cpu() for x in results_obj]
             list_objects = generate_objects(results_obj)
 
