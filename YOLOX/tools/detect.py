@@ -107,7 +107,7 @@ class Predictor(object):
 
         return detected_object
 
-def detect(model_name, exp, frame):
+def process_frame(model_name, exp, frame):
 
     # define arguments
     experiment_name = exp.exp_name

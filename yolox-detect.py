@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from utils import *
 from YOLOX.yolox.exp import get_exp
-from YOLOX.tools.detect import detect
+from YOLOX.tools.detect import process_frame
 
 
 # enable rtsp capture for opencv
@@ -34,7 +34,6 @@ door_poly, door2_poly = get_door_thresholds()
 # class to instantiate every object detected and its attributes,
 # in case of car or bicycle set "keypoints" to 0
 class DetectedObject:
-
     def __init__(self, id, label_num, label_str, conf, bbox_xy, bbox_wh):
         self.id = id
         self.label_num = label_num
@@ -195,7 +194,7 @@ class DetectedObject:
         return self.info
 
 
-def process_frame(vid_path, show_image, save_video):
+def detect(vid_path, show_image, save_video):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
@@ -227,7 +226,7 @@ def process_frame(vid_path, show_image, save_video):
         if success:
             print(f"{LOG_KW}: video detected")
             model = get_exp(exp_file=None, exp_name="yolox-nano")
-            results_image = detect(model_name="yolox_nano.pth", exp=model, frame=frame)
+            results_image = process_frame(model_name="yolox_nano.pth", exp=model, frame=frame)
 
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
@@ -310,5 +309,5 @@ if __name__ == "__main__":
     SAVE_VIDEO = os.getenv(key='SAVE_VIDEO')
 
     # calling generator that yields a json object with info about each frame and the objects in it
-    for frame_info in process_frame(vid_path=VIDEO_SOURCE, show_image=True, save_video=SAVE_VIDEO):
+    for frame_info in detect(vid_path=VIDEO_SOURCE, show_image=True, save_video=SAVE_VIDEO):
         print(frame_info, "\n")
