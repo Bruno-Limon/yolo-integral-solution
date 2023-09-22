@@ -103,8 +103,8 @@ def send_frame_info(number_objs, number_people_zone, cap, obj_info):
                        "num_bikes": number_objs[1],
                        "num_cars": number_objs[2],
                        "people_in_zone": number_people_zone,
-                    #    "people_enter": len(entering),
-                    #    "people_leave": len(leaving),
+                       "people_enter": 0,
+                       "people_leave": 0,
                        "list_objects": obj_info}
 
     json_obj = json.dumps(obj=frame_info_dict, indent=4)
