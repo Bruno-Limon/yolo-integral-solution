@@ -1,0 +1,111 @@
+from datetime import datetime
+import cv2
+import numpy as np
+import json
+
+def get_labels_dict():
+    labels_dict = {0: ["person", (209,209,0)],
+                1: ["bicycle", (47,139,237)],
+                2: ["car", (42,237,139)]}
+
+    return labels_dict
+
+def get_zone_poly():
+    # zone to count people in
+    zone_poly = np.array([[480, 160], #x1, y1 = left upper corner
+                        [780, 200], #x2, y2 = right upper corner
+                        [580, 380], #x3, y3 = right lower corner
+                        [200, 280]], np.int32) #x4, y4 = left lower corner
+    zone_poly = zone_poly.reshape((-1, 1, 2))
+
+    return zone_poly
+
+def get_door_thresholds():
+    #first threshold of "door"
+    door_poly = np.array([[200, 280], #x1, y1 = left upper corner
+                          [440, 355], #x2, y2 = right upper corner
+                          [430, 365], #x3, y3 = right lower corner
+                          [185, 290]], np.int32) #x4, y4 = left lower corner
+    door_poly = door_poly.reshape((-1, 1, 2))
+
+    # second threshold
+    door2_poly = np.array([[180, 300], #x1, y1 = left upper corner
+                           [420, 375], #x2, y2 = right upper corner
+                           [410, 385], #x3, y3 = right lower corner
+                           [165, 310]], np.int32) #x4, y4 = left lower corner
+    door2_poly = door2_poly.reshape((-1, 1, 2))
+
+    return door_poly, door2_poly
+
+def get_bbox_xywh(bbox_xy):
+    x1, y1, x2, y2 = bbox_xy
+    center = [int((x1+x2)/2), int((y1+y2)/2)]
+    w = x2-x1
+    h = y2-y1
+
+    return [center[0], center[1], w, h]
+
+# counting overall objects on screen, including people, bikes and cars
+def count_objs(frame, list_objects):
+    count_people = sum(1 for obj in list_objects if obj.label_num == 0)
+    count_bike = sum(1 for obj in list_objects if obj.label_num == 1)
+    count_car = sum(1 for obj in list_objects if obj.label_num == 2)
+
+    cv2.rectangle(img=frame, pt1=(0,0), pt2=(110,80), color=(0,0,0), thickness=-1)
+    cv2.putText(img=frame, text=f"People: {count_people}", org=(0, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=.6, color=(255,255,255), thickness=1)
+    cv2.putText(img=frame, text=f"Bicycles: {count_bike}", org=(0, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=.6, color=(255,255,255), thickness=1)
+    cv2.putText(img=frame, text=f"Cars: {count_car}", org=(0, 75), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=.6, color=(255,255,255), thickness=1)
+
+    return [count_people, count_bike, count_car]
+
+def count_zone(frame, list_objects, zone_poly):
+    count_people_polygon = 0
+    cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=2)
+
+    for obj in (obj for obj in list_objects if obj.label_num == 0):
+        x, y, w, h = obj.bbox_wh
+        point_in_polygon = cv2.pointPolygonTest(contour=zone_poly, pt=(x, y+int((h/2))), measureDist=False)
+        if point_in_polygon >= 0:
+            count_people_polygon += 1
+
+    return count_people_polygon
+
+# dynamically creating objects from yolo detection and pose estimation
+def generate_objects(DetectedObject, results_image, labels_dict):
+
+    list_objects = []
+
+    # object detection results
+    try:
+        for i in range(len(results_image.bbox)):
+            if results_image.cls[i] in [0, 1, 2]:
+                list_objects.append(DetectedObject(id=i+1,
+                                                   label_num=results_image.cls[i],
+                                                   label_str=labels_dict[results_image.cls[i]][0],
+                                                   conf=round(results_image.conf[i],2),
+                                                   bbox_xy=results_image.bbox[i],
+                                                   bbox_wh=get_bbox_xywh(results_image.bbox[i])
+                                                  )
+                                    )
+    except AttributeError:
+        pass
+
+    return list_objects
+
+def send_frame_info(number_objs, number_people_zone, cap, obj_info):
+
+    frame_info_dict = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                       "frame": int(cap.get(cv2.CAP_PROP_POS_FRAMES)),
+                       "num_people": number_objs[0],
+                       "num_bikes": number_objs[1],
+                       "num_cars": number_objs[2],
+                       "people_in_zone": number_people_zone,
+                       "people_enter": 0,
+                       "people_leave": 0,
+                       "list_objects": obj_info}
+
+    json_obj = json.dumps(obj=frame_info_dict, indent=4)
+    return json_obj

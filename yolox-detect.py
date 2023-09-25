@@ -11,7 +11,6 @@ from utils import *
 from YOLOX.yolox.exp import get_exp
 from YOLOX.tools.detect import process_frame
 
-
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -309,5 +308,5 @@ if __name__ == "__main__":
     SAVE_VIDEO = os.getenv(key='SAVE_VIDEO')
 
     # calling generator that yields a json object with info about each frame and the objects in it
-    for frame_info in detect(vid_path='http://185.137.146.14:80/mjpg/video.mjpg', show_image=True, save_video=SAVE_VIDEO):
+    for frame_info in detect(vid_path=VIDEO_SOURCE, show_image=True, save_video=SAVE_VIDEO):
         print(frame_info, "\n")
