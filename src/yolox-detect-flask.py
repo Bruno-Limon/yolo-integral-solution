@@ -8,7 +8,7 @@ import cv2
 import time
 
 from utils import *
-from class_detected_object import DetectedObject
+from Detected_object import DetectedObject
 from YOLOX.yolox.exp import get_exp
 from YOLOX.tools.detect import process_frame
 
@@ -168,95 +168,57 @@ def detect(vid_path, show_image, save_video):
     gc.collect()
 
 
-
-###
-
-
-from flask import Flask, Response, request
-import threading
-
-app = Flask(__name__)
-
-# Global variables
-# frame_lock used for race conditions on the global current_frame
-# frame_lock = threading.Lock()
-# current_frame produced and consumed
-
-# Function to generate video frames from the stream
-def generate_frames():
-    global current_frame
-
-    try:
-        # Continuously
-        while True:
-            # Access to the current frame safely
-            # with frame_lock:
-            frame = current_frame
-
-            # If exists, yield the frame
-            if frame is not None:
-                _, buffer = cv2.imencode('.jpg', frame)
-                frame_data = buffer.tobytes()
-
-                yield (b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
-    except GeneratorExit:
-        # This is raised when the client disconnects
-        print("Client disconnected")
-
-
-# Video streaming page
-@app.route('/video')
-def video():
-    # Simple login
-    login = request.args.get('login')
-    # Hardcoded password to login
-    if login == 'simple_access1':
-        # If success return the stream
-        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-    else:
-        return Response("Invalid login",mimetype='text/plain')
-
-# Homepage
-@app.route('/')
-def index():
-    return "Service is up!"
-
-
-def run_server():
-    app.run(host='0.0.0.0', port=8080, debug=False)
-
-
-async def loop_main():
-    global current_frame
-    while True:
-        for frame_info, frame in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
-            print(frame_info, "\n")
-
-        # with frame_lock:
-            current_frame = frame
-###
-
-
-
 if __name__ == "__main__":
 
     from frame_singleton import current_frame
+    from Flask_frame import Flask_frame
+    from flask import Flask, request, Response
+    import threading
+
+    app = Flask(__name__)
+    Flask_frame = Flask_frame(app)
 
     # load environment variables
-    VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1' #os.getenv(key='VIDEO_SOURCE')
+    VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1' #os.getenv(key='VIDEO_SOURCE')
     SHOW_IMAGE = False #os.getenv(key='SHOW_IMAGE')
     SAVE_VIDEO = False #os.getenv(key='SAVE_VIDEO')
     EXPOSE_STREAM = True #os.getenv(key='EXPOSE_STREAM')
     RUN_WAIT_TIME = 100 #int(os.getenv(key='RUN_WAIT_TIME'))
 
     if EXPOSE_STREAM:
-        server_thread = threading.Thread(target=run_server)
+        server_thread = threading.Thread(target=Flask_frame.run_server)
         server_thread.daemon = True
         server_thread.start()
 
     # calling generator that yields a json object with info about each frame and the objects in it
     import asyncio
+
+    # Video streaming page
+    @app.route('/video')
+    def video():
+        # Simple login
+        login = request.args.get('login')
+        # Hardcoded password to login
+        if login == 'simple_access1':
+            # If success return the stream
+            return Response(Flask_frame.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+        else:
+            return Response("Invalid login",mimetype='text/plain')
+
+    # Homepage
+    @app.route('/')
+    def index():
+        return "Service is up!"
+
+    async def loop_main():
+        global current_frame
+        while True:
+            for frame_info, frame in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
+                print(frame_info, "\n")
+
+                # with frame_lock:
+                current_frame = frame
+
     loop = asyncio.new_event_loop()
     loop.run_until_complete(loop_main())
 

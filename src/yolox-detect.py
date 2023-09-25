@@ -8,7 +8,7 @@ import cv2
 from dotenv import load_dotenv
 
 from utils import *
-from class_detected_object import DetectedObject
+from Detected_object import DetectedObject
 from YOLOX.yolox.exp import get_exp
 from YOLOX.tools.detect import process_frame
 
