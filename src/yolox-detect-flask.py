@@ -84,7 +84,7 @@ def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, 
         if success:
             print(f"{LOG_KW}: video detected")
             model = get_exp(exp_file=None, exp_name="yolox-nano")
-            results_image = process_frame(model_name="yolox_nano.pth", exp=model, frame=frame)
+            results_image = process_frame(model_name="src/models/yolox_nano.pth", exp=model, frame=frame)
 
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
