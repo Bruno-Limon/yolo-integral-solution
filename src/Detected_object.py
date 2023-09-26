@@ -1,10 +1,4 @@
 import cv2
-from utils import *
-
-# dictionary to map the class number obtained with yolo with its name and color for bounding boxes
-labels_dict = get_labels_dict()
-# zone to count people in
-zone_poly = get_zone_poly()
 
 # class to instantiate every object detected and its attributes,
 # in case of car or bicycle set "keypoints" to 0
@@ -22,7 +16,7 @@ class DetectedObject:
         self.info = {}
 
     # draw each bounding box with the color selected in "labels_dict", writes id and confidence of detected object
-    def draw_boxes(self, frame)->None:
+    def draw_boxes(self, frame, labels_dict, show_bbox)->None:
         """Raw each bounding box with the color selected in "labels_dict",
          writes id and confidence of detected object.
 
@@ -38,50 +32,51 @@ class DetectedObject:
         text = f"id:{self.id} {self.conf}"
         txt_size = cv2.getTextSize(text=text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, thickness=1)[0]
 
-        # bbox rectangle
-        cv2.rectangle(img=frame,
-                      pt1=(x1,y1),
-                      pt2=(x2,y2),
-                      color=labels_dict[int(self.label_num)][1],
-                      thickness=2)
+        if show_bbox == True:
+            # bbox rectangle
+            cv2.rectangle(img=frame,
+                        pt1=(x1,y1),
+                        pt2=(x2,y2),
+                        color=labels_dict[int(self.label_num)][1],
+                        thickness=2)
 
-        # header of bbox to put info into
-        cv2.rectangle(img=frame,
-                      pt1=(x1 - 2, y1 - int(1.5 * txt_size[1])),
-                      pt2=(x1 + txt_size[0] + 2, y1),
-                      color=labels_dict[int(self.label_num)][1],
-                      thickness=-1)
+            # header of bbox to put info into
+            cv2.rectangle(img=frame,
+                        pt1=(x1 - 2, y1 - int(1.5 * txt_size[1])),
+                        pt2=(x1 + txt_size[0] + 2, y1),
+                        color=labels_dict[int(self.label_num)][1],
+                        thickness=-1)
 
-        # information about object, id and conf
-        cv2.putText(img=frame,
-                    text=text,
-                    org=(x1, y1 - int(.5 * txt_size[1])),
-                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                    fontScale=.5,
-                    color=(255,255,255),
-                    thickness=1)
+            # information about object, id and conf
+            cv2.putText(img=frame,
+                        text=text,
+                        org=(x1, y1 - int(.5 * txt_size[1])),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                        fontScale=.5,
+                        color=(255,255,255),
+                        thickness=1)
 
-        # central lower point of bounding box
-        if self.label_num == 0:
-            cv2.circle(img=frame, center=(x, y+int((h/2))), radius=4, color=(0,255,0), thickness=-1)
+            # central lower point of bounding box
+            if self.label_num == 0:
+                cv2.circle(img=frame, center=(x, y+int((h/2))), radius=4, color=(0,255,0), thickness=-1)
 
     # detect man down, using the width and height of bounding box, if w > h, then man_down
-    def get_is_down(self, frame):
-
+    def get_is_down(self, frame, show_man_down):
         x, y, w, h = self.bbox_wh
         x1, y1, x2, y2 = self.bbox_xy
 
         # the angle determines if the person is on the ground or not
         if w > h and self.label_num == 0:
             self.is_down = True
-            cv2.rectangle(img=frame, pt1=(x1-2, y1+(h-50)), pt2=(x2+2, y2),
-                        color=(0,0,0), thickness=-1)
-            cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                        fontScale=1, color=(255,255,255), thickness=1)
+
+            if show_man_down == True:
+                cv2.rectangle(img=frame, pt1=(x1-2, y1+(h-50)), pt2=(x2+2, y2),
+                            color=(0,0,0), thickness=-1)
+                cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=1, color=(255,255,255), thickness=1)
 
     # # draw a line following the movement of detected people during a certain amount of frames
     # def draw_tracks(self, frame, track_history_dict):
-
     #     if self.label_num == 0:
     #         x, y, w, h = self.bbox_wh
     #         track = track_history_dict[self.id]
@@ -94,23 +89,21 @@ class DetectedObject:
     #         cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
 
     # # determines if person is inside a defined area or not
-    # def get_is_in_zone(self, poly):
-
+    # def get_is_in_zone(self, zone_poly):
     #     x, y, w, h = self.bbox_wh
 
-    #     point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
+    #     point_in_polygon = cv2.pointPolygonTest(contour=zone_poly, pt=(x, y+int((h/2))), measureDist=False)
     #     if self.label_num == 0 and (point_in_polygon == 1.0 or point_in_polygon == 0.0):
     #         self.is_in_zone = True
 
     #     return self.id, self.is_in_zone
 
 #     # shows amount of time a person has spent inside area
-#     def draw_time_zone(self, frame, poly, time_in_zone_dict, fps):
-
+#     def draw_time_zone(self, frame, time_in_zone_dict, fps, zone_poly):
 #         x, y, w, h = self.bbox_wh
 #         x1, y1, x2, y2 = self.bbox_xy
 
-#         point_in_polygon = cv2.pointPolygonTest(contour=poly, pt=(x, y+int((h/2))), measureDist=False)
+#         point_in_polygon = cv2.pointPolygonTest(contour=zone_poly, pt=(x, y+int((h/2))), measureDist=False)
 #         if self.label_num == 0 and (point_in_polygon == 1.0 or point_in_polygon == 0.0):
 #             time = time_in_zone_dict[self.id] # access dict with id and amount of time in zone
 #             time = round(time/fps, 1)
@@ -122,8 +115,7 @@ class DetectedObject:
 #             self.time_in_zone = time
 
 #     # count number of people entering and leaving
-#     def enter_leave(self, frame, frame_width):
-
+#     def enter_leave(self, frame, frame_width, door_poly, door2_poly):
 #         x, y, w, h = self.bbox_wh
 
 #         # lower point of bounding box, representing the feet
@@ -164,7 +156,6 @@ class DetectedObject:
 
     # prints or returns all info about the detected objects in each frame
     def obj_info(self):
-
         self.info = {"id": self.id,
                      "class": self.label_str,
                      "confidence": self.conf,

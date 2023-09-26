@@ -3,36 +3,44 @@ import cv2
 import numpy as np
 import json
 
+
 def get_labels_dict():
     labels_dict = {0: ["person", (209,209,0)],
-                1: ["bicycle", (47,139,237)],
-                2: ["car", (42,237,139)]}
+                   1: ["bicycle", (47,139,237)],
+                   2: ["car", (42,237,139)]}
 
     return labels_dict
 
-def get_zone_poly():
+def get_zone_poly(zone_coords):
+
+    # turning string into list with coordinates
+    polygon = [[int(y) for y in x.split(',')] for x in zone_coords.split('|')]
+
     # zone to count people in
-    zone_poly = np.array([[480, 160], #x1, y1 = left upper corner
-                        [780, 200], #x2, y2 = right upper corner
-                        [580, 380], #x3, y3 = right lower corner
-                        [200, 280]], np.int32) #x4, y4 = left lower corner
+    zone_poly = np.array([polygon[0], # left upper corner
+                          polygon[1], # right upper corner
+                          polygon[2], # right lower corner
+                          polygon[3]], np.int32) # left lower corner
     zone_poly = zone_poly.reshape((-1, 1, 2))
 
     return zone_poly
 
-def get_door_thresholds():
-    #first threshold of "door"
-    door_poly = np.array([[200, 280], #x1, y1 = left upper corner
-                          [440, 355], #x2, y2 = right upper corner
-                          [430, 365], #x3, y3 = right lower corner
-                          [185, 290]], np.int32) #x4, y4 = left lower corner
+def get_door_thresholds(door_coords, door2_coords):
+    # first threshold of "door"
+    polygon = [[int(y) for y in x.split(',')] for x in door_coords.split('|')]
+    polygon2 = [[int(y) for y in x.split(',')] for x in door2_coords.split('|')]
+
+    door_poly = np.array([polygon[0],
+                          polygon[1],
+                          polygon[2],
+                          polygon[3]], np.int32)
     door_poly = door_poly.reshape((-1, 1, 2))
 
     # second threshold
-    door2_poly = np.array([[180, 300], #x1, y1 = left upper corner
-                           [420, 375], #x2, y2 = right upper corner
-                           [410, 385], #x3, y3 = right lower corner
-                           [165, 310]], np.int32) #x4, y4 = left lower corner
+    door2_poly = np.array([polygon2[0],
+                           polygon2[1],
+                           polygon2[2],
+                           polygon2[3]], np.int32)
     door2_poly = door2_poly.reshape((-1, 1, 2))
 
     return door_poly, door2_poly
@@ -46,24 +54,27 @@ def get_bbox_xywh(bbox_xy):
     return [center[0], center[1], w, h]
 
 # counting overall objects on screen, including people, bikes and cars
-def count_objs(frame, list_objects):
+def count_objs(frame, list_objects, show_count_people):
     count_people = sum(1 for obj in list_objects if obj.label_num == 0)
     count_bike = sum(1 for obj in list_objects if obj.label_num == 1)
     count_car = sum(1 for obj in list_objects if obj.label_num == 2)
 
-    cv2.rectangle(img=frame, pt1=(0,0), pt2=(110,80), color=(0,0,0), thickness=-1)
-    cv2.putText(img=frame, text=f"People: {count_people}", org=(0, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=.6, color=(255,255,255), thickness=1)
-    cv2.putText(img=frame, text=f"Bicycles: {count_bike}", org=(0, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=.6, color=(255,255,255), thickness=1)
-    cv2.putText(img=frame, text=f"Cars: {count_car}", org=(0, 75), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                fontScale=.6, color=(255,255,255), thickness=1)
+    if show_count_people == True:
+        cv2.rectangle(img=frame, pt1=(0,0), pt2=(110,80), color=(0,0,0), thickness=-1)
+        cv2.putText(img=frame, text=f"People: {count_people}", org=(0, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=.6, color=(255,255,255), thickness=1)
+        cv2.putText(img=frame, text=f"Bicycles: {count_bike}", org=(0, 50), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=.6, color=(255,255,255), thickness=1)
+        cv2.putText(img=frame, text=f"Cars: {count_car}", org=(0, 75), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=.6, color=(255,255,255), thickness=1)
 
     return [count_people, count_bike, count_car]
 
-def count_zone(frame, list_objects, zone_poly):
+def count_zone(frame, list_objects, zone_poly, show_zone):
     count_people_polygon = 0
-    cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=2)
+
+    if show_zone == True:
+        cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=2)
 
     for obj in (obj for obj in list_objects if obj.label_num == 0):
         x, y, w, h = obj.bbox_wh
@@ -75,7 +86,6 @@ def count_zone(frame, list_objects, zone_poly):
 
 # dynamically creating objects from yolo detection and pose estimation
 def generate_objects(DetectedObject, results_image, labels_dict):
-
     list_objects = []
 
     # object detection results
@@ -96,7 +106,6 @@ def generate_objects(DetectedObject, results_image, labels_dict):
     return list_objects
 
 def send_frame_info(number_objs, number_people_zone, cap, obj_info):
-
     frame_info_dict = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                        "frame": int(cap.get(cv2.CAP_PROP_POS_FRAMES)),
                        "num_people": number_objs[0],

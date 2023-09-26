@@ -1,5 +1,4 @@
 from collections import defaultdict
-import numpy as np
 import os
 import gc
 
@@ -12,35 +11,33 @@ from Detected_object import DetectedObject
 from YOLOX.yolox.exp import get_exp
 from YOLOX.tools.detect import process_frame
 
-
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-# dictionary to map the class number obtained with yolo with its name and color for bounding boxes
-labels_dict = get_labels_dict()
-# zone to count people in
-zone_poly = get_zone_poly()
 
-# NEEDS TRACKING
-# # dictionaries containing id of people entering/leaving and sets to count them
-people_entering_dict = {}
-entering = set()
-people_leaving_dict = {}
-leaving = set()
-
-# door thresholds
-door_poly, door2_poly = get_door_thresholds()
-
-def detect(vid_path, show_image, save_video):
+def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, show_man_down,
+           show_count_people, show_tracking, show_time_zone, show_enter_leaving):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
 
     is_stream = True #type(vid_path) is int or vid_path.startswith('rtsp')
 
+    # dictionary to map the class number obtained with yolo with its name and color for bounding boxes
+    labels_dict = get_labels_dict()
+    # zone to count people in
+    zone_poly = get_zone_poly(zone_coords)
+
     LOG_KW = "LOG"
     print(f"{LOG_KW}: model loaded, starting detection")
+
+    # NEEDS TRACKING
+    # # dictionaries containing id of people entering/leaving and sets to count them
+    # people_entering_dict = {}
+    # entering = set()
+    # people_leaving_dict = {}
+    # leaving = set()
 
     # NEEDS TRACKING
     # store the track history
@@ -92,27 +89,27 @@ def detect(vid_path, show_image, save_video):
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
             # show bounding boxes
-            [obj.draw_boxes(frame) for obj in list_objects]
+            [obj.draw_boxes(frame, labels_dict, show_bbox) for obj in list_objects]
 
             # NEEDS TRACKING
             # draw tracks
             # [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
 
             # detect man down
-            [obj.get_is_down(frame) for obj in list_objects]
+            [obj.get_is_down(frame, show_man_down) for obj in list_objects]
 
             # NEEDS TRACKING
             # # for every person inside an area, count the number of frames
             # for obj in list_objects:
-            #     obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
+            #     obj_id, obj_is_in_zone, = obj.get_is_in_zone()
             #     if obj_is_in_zone:
             #         time_in_zone_dict[obj_id] += 1
 
             # count objects
-            number_objs = count_objs(frame, list_objects)
+            number_objs = count_objs(frame, list_objects, show_count_people)
 
             # count people in zone
-            number_people_zone = count_zone(frame, list_objects, zone_poly)
+            number_people_zone = count_zone(frame, list_objects, zone_poly, show_zone)
 
             # NEEDS TRACKING
             # # count people entering and leaving a certain area
@@ -120,7 +117,7 @@ def detect(vid_path, show_image, save_video):
 
             # NEEDS TRACKING
             # # show time inside zone on top of people's boxes
-            # [obj.draw_time_zone(frame, zone_poly, time_in_zone_dict, fps) for obj in list_objects]
+            # [obj.draw_time_zone(frame, time_in_zone_dict, fps) for obj in list_objects]
 
             # get object info
             obj_info = []
@@ -168,57 +165,112 @@ def detect(vid_path, show_image, save_video):
     gc.collect()
 
 
+############## FLASK #################
+
+from flask import Flask, Response, request
+import threading
+
+app = Flask(__name__)
+
+# Global variables
+# frame_lock used for race conditions on the global current_frame
+# frame_lock = threading.Lock()
+# current_frame produced and consumed
+
+# Function to generate video frames from the stream
+def generate_frames():
+    global current_frame
+
+    try:
+        # Continuously
+        while True:
+            # Access to the current frame safely
+            # with frame_lock:
+            frame = current_frame
+
+            # If exists, yield the frame
+            if frame is not None:
+                _, buffer = cv2.imencode('.jpg', frame)
+                frame_data = buffer.tobytes()
+
+                yield (b'--frame\r\n'
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+    except GeneratorExit:
+        # This is raised when the client disconnects
+        print("Client disconnected")
+
+# Video streaming page
+@app.route('/video')
+def video():
+    # Simple login
+    login = request.args.get('login')
+    # Hardcoded password to login
+    if login == 'simple_access1':
+        # If success return the stream
+        return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    else:
+        return Response("Invalid login",mimetype='text/plain')
+
+# Homepage
+@app.route('/')
+def index():
+    return "Service is up!"
+
+def run_server():
+    app.run(host='0.0.0.0', port=8080, debug=False)
+
+async def loop_main():
+    global current_frame
+    while True:
+        for frame_info, frame in detect(vid_path=VIDEO_SOURCE,
+                                        show_image=SHOW_IMAGE,
+                                        save_video=SAVE_VIDEO,
+                                        zone_coords=ZONE_COORDS,
+                                        show_bbox=SHOW_BBOX,
+                                        show_zone=SHOW_ZONE,
+                                        show_man_down=SHOW_MAN_DOWN,
+                                        show_count_people=SHOW_COUNT_PEOPLE,
+                                        show_tracking=SHOW_TRACKING,
+                                        show_time_zone=SHOW_TIME_ZONE,
+                                        show_enter_leaving=SHOW_ENTER_LEAVING):
+            print(frame_info, "\n")
+
+            # with frame_lock:
+            current_frame = frame
+
+############## FLASK #################
+
+
 if __name__ == "__main__":
 
-    from frame_singleton import current_frame
-    from Flask_frame import Flask_frame
-    from flask import Flask, request, Response
-    import threading
-
-    app = Flask(__name__)
-    Flask_frame = Flask_frame(app)
-
     # load environment variables
-    VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #'rtsp://admin:T0lstenc088@abyss88.ignorelist.com/1' #os.getenv(key='VIDEO_SOURCE')
+    # VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
+    VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
     SHOW_IMAGE = False #os.getenv(key='SHOW_IMAGE')
     SAVE_VIDEO = False #os.getenv(key='SAVE_VIDEO')
     EXPOSE_STREAM = True #os.getenv(key='EXPOSE_STREAM')
     RUN_WAIT_TIME = 100 #int(os.getenv(key='RUN_WAIT_TIME'))
 
+    SHOW_BBOX = True #os.getenv(key='SHOW_BBOX')
+    SHOW_ZONE = False #os.getenv(key='SHOW_ZONE')
+    SHOW_MAN_DOWN = False #os.getenv(key='SHOW_MAN_DOWN')
+    SHOW_COUNT_PEOPLE = True #os.getenv(key='SHOW_COUNT_PEOPLE')
+    SHOW_TRACKING = False #os.getenv(key='SHOW_TRACKING')
+    SHOW_TIME_ZONE = False #os.getenv(key='SHOW_TIME_ZONE')
+    SHOW_ENTER_LEAVING = False #os.getenv(key='SHOW_ENTER_LEAVING')
+    FLASK_PORT = 8080 #os.getenv(key='FLASK_PORT')
+
+    ZONE_COORDS = "493,160|780,200|580,380|200,280" #os.getenv(key='ZONE_COORDS')
+    DOOR_COORDS = "200,280|440,355|430,365|185,290" #os.getenv(key='DOOR_COORDS')
+    DOOR2_COORDS = "180,300|420,375|410,385|165,310" #os.getenv(key='DOOR2_COORDS')
+
     if EXPOSE_STREAM:
-        server_thread = threading.Thread(target=Flask_frame.run_server)
+        server_thread = threading.Thread(target=run_server)
         server_thread.daemon = True
         server_thread.start()
 
     # calling generator that yields a json object with info about each frame and the objects in it
     import asyncio
-
-    # Video streaming page
-    @app.route('/video')
-    def video():
-        # Simple login
-        login = request.args.get('login')
-        # Hardcoded password to login
-        if login == 'simple_access1':
-            # If success return the stream
-            return Response(Flask_frame.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-        else:
-            return Response("Invalid login",mimetype='text/plain')
-
-    # Homepage
-    @app.route('/')
-    def index():
-        return "Service is up!"
-
-    async def loop_main():
-        global current_frame
-        while True:
-            for frame_info, frame in detect(vid_path=VIDEO_SOURCE, show_image=SHOW_IMAGE, save_video=SAVE_VIDEO):
-                print(frame_info, "\n")
-
-                # with frame_lock:
-                current_frame = frame
-
     loop = asyncio.new_event_loop()
     loop.run_until_complete(loop_main())
 
