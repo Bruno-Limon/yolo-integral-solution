@@ -118,3 +118,14 @@ def send_frame_info(number_objs, number_people_zone, cap, obj_info):
 
     json_obj = json.dumps(obj=frame_info_dict, indent=4)
     return json_obj
+
+def print_fps(frame, frame_width, frame_height, infer_time, process_time):
+    print(f"inference time: {round(infer_time, 4)}")
+    print(f"process time: {round(process_time, 4)}")
+    current_fps = round((1 / process_time), 2)
+    print(f"fps: {current_fps}")
+
+    cv2.rectangle(img=frame, pt1=(frame_width - 50, frame_height - 35),
+                  pt2=(frame_width, frame_height), color=(0,0,0), thickness=-1)
+    cv2.putText(img=frame, text=str(current_fps), org=(frame_width - 45, frame_height - 15),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.6, color=(255,255,255), thickness=1)

@@ -78,7 +78,8 @@ class Predictor(object):
             outputs = postprocess(outputs, self.num_classes, self.confthre,
                                   self.nmsthre, class_agnostic=True)
 
-            print("Infer time: {:.4f}s".format(time.time() - t0))
+            # print("Infer time: {:.4f}s".format(time.time() - t0))
+            img_info["infer_time"] = time.time() - t0
 
         return outputs, img_info
 
@@ -116,8 +117,8 @@ def process_frame(model_name, exp, frame):
     trt = False
     fuse = False
     legacy = False
-    exp.test_conf = 0.2
-    exp.nmsthre = 0.2
+    exp.test_conf = 0.4
+    exp.nmsthre = 0.5
     exp.test_size = (1280, 1280)
     model = exp.get_model()
 
@@ -154,4 +155,4 @@ def process_frame(model_name, exp, frame):
     outputs, img_info = predictor.inference(img=img[0])
     result_image = predictor.visual(output=outputs[0], img_info=img_info, cls_conf=predictor.confthre)
 
-    return result_image
+    return result_image, img_info

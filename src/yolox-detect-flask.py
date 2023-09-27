@@ -83,8 +83,8 @@ def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, 
         # If frame is read, compute outputs
         if success:
             print(f"{LOG_KW}: video detected")
-            model = get_exp(exp_file=None, exp_name="yolox-nano")
-            results_image = process_frame(model_name="src/models/yolox_nano.pth", exp=model, frame=frame)
+            model = get_exp(exp_file=None, exp_name="yolox-s")
+            results_image, img_info = process_frame(model_name="src/models/yolox_s.pth", exp=model, frame=frame)
 
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
@@ -145,6 +145,8 @@ def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, 
         end = time.time()
         elapsed = (end-start)
         frames_to_skip=int(fps*elapsed)
+
+        print_fps(frame, width, height, img_info['infer_time'], elapsed)
 
         # Left here for learning purposes. This is taking 1s
         # s2 = time.time()
@@ -244,6 +246,7 @@ async def loop_main():
 if __name__ == "__main__":
 
     # load environment variables
+    # VIDEO_SOURCE = 'Data/vid7.mp4' #os.getenv(key='VIDEO_SOURCE')
     VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
     # VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
     SHOW_IMAGE = False #os.getenv(key='SHOW_IMAGE')
