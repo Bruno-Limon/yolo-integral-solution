@@ -16,8 +16,9 @@ os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
-def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, show_man_down,
-           show_count_people, show_tracking, show_time_zone, show_enter_leaving):
+def detect(vid_path, show_image, save_video, zone_coords, # params
+           do_draw_bbox, do_man_down, do_draw_tracks, do_time_zone, do_count_objects, do_count_zone, do_enter_leave, # tasks to do
+           show_man_down, show_zone, show_count_people, show_time_zone, show_enter_leave): # show on frame
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
@@ -83,41 +84,46 @@ def detect(vid_path, show_image, save_video, zone_coords, show_bbox, show_zone, 
         # If frame is read, compute outputs
         if success:
             print(f"{LOG_KW}: video detected")
-            model = get_exp(exp_file=None, exp_name="yolox-s")
-            results_image, img_info = process_frame(model_name="src/models/yolox_s.pth", exp=model, frame=frame)
+            model = get_exp(exp_file=None, exp_name="yolox-nano")
+            results_image, img_info = process_frame(model_name="src/models/yolox_nano.pth", exp=model, frame=frame)
 
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
             # show bounding boxes
-            [obj.draw_boxes(frame, labels_dict, show_bbox) for obj in list_objects]
+            if do_draw_bbox == True:
+                [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
+
+            # detect man down
+            if do_man_down == True:
+                [obj.get_is_down(frame, show_man_down) for obj in list_objects]
 
             # NEEDS TRACKING
             # draw tracks
-            # [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
-
-            # detect man down
-            [obj.get_is_down(frame, show_man_down) for obj in list_objects]
+            # if do_draw_tracks == True:
+            #     [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
 
             # NEEDS TRACKING
-            # # for every person inside an area, count the number of frames
-            # for obj in list_objects:
-            #     obj_id, obj_is_in_zone, = obj.get_is_in_zone()
-            #     if obj_is_in_zone:
-            #         time_in_zone_dict[obj_id] += 1
+            # for every person inside an area, count the number of frames
+            if do_time_zone == True:
+                for obj in list_objects:
+                    obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
+                    if obj_is_in_zone:
+                        time_in_zone_dict[obj_id] += 1
+                # show time inside zone on top of people's boxes
+                [obj.draw_time_zone(frame, time_in_zone_dict, fps, zone_poly, show_time_zone) for obj in list_objects]
 
             # count objects
-            number_objs = count_objs(frame, list_objects, show_count_people)
+            if do_count_objects == True:
+                number_objs = count_objs(frame, list_objects, show_count_people)
 
             # count people in zone
-            number_people_zone = count_zone(frame, list_objects, zone_poly, show_zone)
+            if do_count_zone == True:
+                number_people_zone = count_zone(frame, list_objects, zone_poly, show_zone)
 
             # NEEDS TRACKING
             # # count people entering and leaving a certain area
-            # [obj.enter_leave(frame, width) for obj in list_objects]
-
-            # NEEDS TRACKING
-            # # show time inside zone on top of people's boxes
-            # [obj.draw_time_zone(frame, time_in_zone_dict, fps) for obj in list_objects]
+            # if do_enter_leave == True:
+                # [obj.enter_leave(frame, width, show_enter_leave) for obj in list_objects]
 
             # get object info
             obj_info = []
@@ -228,13 +234,20 @@ async def loop_main():
                                         show_image=SHOW_IMAGE,
                                         save_video=SAVE_VIDEO,
                                         zone_coords=ZONE_COORDS,
-                                        show_bbox=SHOW_BBOX,
-                                        show_zone=SHOW_ZONE,
+                                        # tasks
+                                        do_draw_bbox=DO_DRAW_BBOX,
+                                        do_man_down=DO_MAN_DOWN,
+                                        do_draw_tracks=DO_DRAW_TRACKS,
+                                        do_time_zone=DO_TIME_ZONE,
+                                        do_count_objects=DO_COUNT_OBJECTS,
+                                        do_count_zone=DO_COUNT_ZONE,
+                                        do_enter_leave=DO_ENTER_LEAVE,
+                                        # visual
                                         show_man_down=SHOW_MAN_DOWN,
+                                        show_zone=SHOW_ZONE,
                                         show_count_people=SHOW_COUNT_PEOPLE,
-                                        show_tracking=SHOW_TRACKING,
                                         show_time_zone=SHOW_TIME_ZONE,
-                                        show_enter_leaving=SHOW_ENTER_LEAVING):
+                                        show_enter_leave=SHOW_ENTER_LEAVE):
             print(frame_info, "\n")
 
             # with frame_lock:
@@ -246,22 +259,29 @@ async def loop_main():
 if __name__ == "__main__":
 
     # load environment variables
-    # VIDEO_SOURCE = 'Data/vid7.mp4' #os.getenv(key='VIDEO_SOURCE')
-    VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
-    # VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
+    # VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
+    VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
     SHOW_IMAGE = False #os.getenv(key='SHOW_IMAGE')
     SAVE_VIDEO = False #os.getenv(key='SAVE_VIDEO')
     EXPOSE_STREAM = True #os.getenv(key='EXPOSE_STREAM')
     RUN_WAIT_TIME = 100 #int(os.getenv(key='RUN_WAIT_TIME'))
-
-    SHOW_BBOX = True #os.getenv(key='SHOW_BBOX')
-    SHOW_ZONE = False #os.getenv(key='SHOW_ZONE')
-    SHOW_MAN_DOWN = False #os.getenv(key='SHOW_MAN_DOWN')
-    SHOW_COUNT_PEOPLE = True #os.getenv(key='SHOW_COUNT_PEOPLE')
-    SHOW_TRACKING = False #os.getenv(key='SHOW_TRACKING')
-    SHOW_TIME_ZONE = False #os.getenv(key='SHOW_TIME_ZONE')
-    SHOW_ENTER_LEAVING = False #os.getenv(key='SHOW_ENTER_LEAVING')
     FLASK_PORT = 8080 #os.getenv(key='FLASK_PORT')
+
+    # tasks that can be done
+    DO_DRAW_BBOX = True #os.getenv(key='DO_DRAW_BBOX')
+    DO_MAN_DOWN = False #os.getenv(key='DO_MAN_DOWN')
+    DO_DRAW_TRACKS = False #os.getenv(key='DO_DRAW_TRACKS')
+    DO_TIME_ZONE = False #os.getenv(key='DO_TIME_ZONE')
+    DO_COUNT_OBJECTS = True #os.getenv(key='DO_COUNT_OBJECTS')
+    DO_COUNT_ZONE = True #os.getenv(key='DO_COUNT_ZONE')
+    DO_ENTER_LEAVE = False #os.getenv(key='DO_ENTER_LEAVE')
+
+    # visual elements that can be shown on frame
+    SHOW_MAN_DOWN = False #os.getenv(key='SHOW_MAN_DOWN')
+    SHOW_ZONE = True #os.getenv(key='SHOW_ZONE')
+    SHOW_COUNT_PEOPLE = True #os.getenv(key='SHOW_COUNT_PEOPLE')
+    SHOW_TIME_ZONE = False #os.getenv(key='SHOW_TIME_ZONE')
+    SHOW_ENTER_LEAVE = False #os.getenv(key='SHOW_ENTER_LEAVING')
 
     ZONE_COORDS = "493,160|780,200|580,380|200,280" #os.getenv(key='ZONE_COORDS')
     DOOR_COORDS = "200,280|440,355|430,365|185,290" #os.getenv(key='DOOR_COORDS')

@@ -122,6 +122,7 @@ def send_frame_info(number_objs, number_people_zone, cap, obj_info):
 def print_fps(frame, frame_width, frame_height, infer_time, process_time):
     print(f"inference time: {round(infer_time, 4)}")
     print(f"process time: {round(process_time, 4)}")
+
     current_fps = round((1 / process_time), 2)
     print(f"fps: {current_fps}")
 
