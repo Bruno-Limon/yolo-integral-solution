@@ -244,8 +244,8 @@ async def loop_main():
 if __name__ == "__main__":
 
     # load environment variables
-    # VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
-    VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
+    VIDEO_SOURCE = 'http://185.137.146.14:80/mjpg/video.mjpg' #os.getenv(key='VIDEO_SOURCE')
+    # VIDEO_SOURCE = 'https://nvidia.box.com/shared/static/veuuimq6pwvd62p9fresqhrrmfqz0e2f.mp4' #os.getenv(key='VIDEO_SOURCE')
     SHOW_IMAGE = False #os.getenv(key='SHOW_IMAGE')
     SAVE_VIDEO = False #os.getenv(key='SAVE_VIDEO')
     EXPOSE_STREAM = True #os.getenv(key='EXPOSE_STREAM')

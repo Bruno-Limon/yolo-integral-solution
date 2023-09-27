@@ -116,9 +116,9 @@ def process_frame(model_name, exp, frame):
     trt = False
     fuse = False
     legacy = False
-    exp.test_conf = 0.4
-    exp.nmsthre = 0.45
-    exp.test_size = (640, 640)
+    exp.test_conf = 0.2
+    exp.nmsthre = 0.2
+    exp.test_size = (1280, 1280)
     model = exp.get_model()
 
     file_name = os.path.join(exp.output_dir, experiment_name)

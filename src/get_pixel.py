@@ -37,7 +37,7 @@ def click_event(event, x, y, flags, params):
 
         if event == cv2.EVENT_RBUTTONDOWN:
             get_pixel_points = []
-            get_pixel_img = cv2.imread('Data/img/img1.PNG', 1)
+            get_pixel_img = cv2.imread('src/img1.PNG', 1)
             cv2.imshow('image', get_pixel_img)
             cv2.setMouseCallback('image', click_event)
 
@@ -56,13 +56,13 @@ def click_event(event, x, y, flags, params):
 
     if event == cv2.EVENT_RBUTTONDOWN:
         get_pixel_points = []
-        get_pixel_img = cv2.imread('Data/img/img1.PNG', 1)
+        get_pixel_img = cv2.imread('src/img1.PNG', 1)
         cv2.imshow('image', get_pixel_img)
         cv2.setMouseCallback('image', click_event)
 
 
 if __name__=="__main__":
 
-    get_pixel_img = cv2.imread('Data/img/img1.PNG', 1)
+    get_pixel_img = cv2.imread('src/img1.PNG', 1)
     zone_points = define_zone(get_pixel_img)
     print(zone_points)
