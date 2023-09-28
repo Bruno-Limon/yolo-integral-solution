@@ -7,9 +7,11 @@ import cv2
 import time
 
 from utils import *
+from super_gradients_detection import detect_sg
 from Detected_object import DetectedObject
-from YOLOX.yolox.exp import get_exp
-from YOLOX.tools.detect import process_frame
+
+# from YOLOX.yolox.exp import get_exp
+# from YOLOX.tools.detect import process_frame
 
 # enable rtsp capture for opencv
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
@@ -84,9 +86,9 @@ def detect(vid_path, show_image, save_video, zone_coords, # params
         # If frame is read, compute outputs
         if success:
             print(f"{LOG_KW}: video detected")
-            model = get_exp(exp_file=None, exp_name="yolox-nano")
-            results_image, img_info = process_frame(model_name="src/models/yolox_nano.pth", exp=model, frame=frame)
-
+            # model = get_exp(exp_file=None, exp_name="yolox-nano")
+            # results_image, img_info = process_frame(model_name="src/models/yolox_nano.pth", exp=model, frame=frame)
+            results_image, infer_time = detect_sg(frame)
             list_objects = generate_objects(DetectedObject, results_image, labels_dict)
 
             # show bounding boxes
@@ -152,7 +154,7 @@ def detect(vid_path, show_image, save_video, zone_coords, # params
         elapsed = (end-start)
         frames_to_skip=int(fps*elapsed)
 
-        print_fps(frame, width, height, img_info['infer_time'], elapsed)
+        print_fps(frame, width, height, infer_time, elapsed)
 
         # Left here for learning purposes. This is taking 1s
         # s2 = time.time()
