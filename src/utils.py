@@ -1,7 +1,6 @@
 from datetime import datetime
 import cv2
 import numpy as np
-import json
 
 
 def get_labels_dict():
@@ -59,7 +58,7 @@ def count_objs(frame, list_objects, show_count_people):
     count_bike = sum(1 for obj in list_objects if obj.label_num == 1)
     count_car = sum(1 for obj in list_objects if obj.label_num == 2)
 
-    if show_count_people == True:
+    if show_count_people == 'True':
         cv2.rectangle(img=frame, pt1=(0,0), pt2=(110,80), color=(0,0,0), thickness=-1)
         cv2.putText(img=frame, text=f"People: {count_people}", org=(0, 25), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                     fontScale=.6, color=(255,255,255), thickness=1)
@@ -70,11 +69,12 @@ def count_objs(frame, list_objects, show_count_people):
 
     return [count_people, count_bike, count_car]
 
-def count_zone(frame, list_objects, zone_poly, show_zone):
+def count_zone(frame, list_objects, zone_poly, door_poly, show_zone):
     count_people_polygon = 0
 
-    if show_zone == True:
+    if show_zone == 'True':
         cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=2)
+        cv2.polylines(img=frame, pts=[door_poly], isClosed=True, color=(0,204,255), thickness=2)
 
     for obj in (obj for obj in list_objects if obj.label_num == 0):
         x, y, w, h = obj.bbox_wh
@@ -107,6 +107,9 @@ def generate_objects(DetectedObject, results_image, labels_dict):
 
 def send_frame_info(number_objs, number_people_zone, cap, obj_info):
     frame_info_dict = {"date_time": datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                       "device_id": "-",
+                       "camera_id": "-",
+                       "model_id": "-",
                        "frame": int(cap.get(cv2.CAP_PROP_POS_FRAMES)),
                        "num_people": number_objs[0],
                        "num_bikes": number_objs[1],
@@ -116,8 +119,7 @@ def send_frame_info(number_objs, number_people_zone, cap, obj_info):
                        "people_leave": 0,
                        "list_objects": obj_info}
 
-    json_obj = json.dumps(obj=frame_info_dict, indent=4)
-    return json_obj
+    return frame_info_dict
 
 def print_fps(frame, frame_width, frame_height, infer_time, process_time):
     print(f"inference time: {round(infer_time, 4)}")

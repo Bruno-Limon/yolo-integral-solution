@@ -1,15 +1,16 @@
 import cv2
 import os
+from load_env_var import load_var
 
-def first_frame_capture(vid_source, file_name):
 
-    cap = cv2.VideoCapture(vid_source)
+def first_frame_capture(video_source, file_name):
+    cap = cv2.VideoCapture(video_source)
     frame_counter = 0
 
     while cap.isOpened and frame_counter < 1:
         success, frame = cap.read()
         if success:
-            cv2.imwrite("frame.jpg", frame)
+            cv2.imwrite(file_name, frame)
             frame_counter += 1
 
 def define_zone(pixel_frame):
@@ -76,9 +77,11 @@ def click_event(event, x, y, flags, params):
 
 
 if __name__=="__main__":
+    environment_variables = load_var(iothub=False)
 
     file_name = "frame.jpg"
-    first_frame_capture('Data/vid/pedestrians.mp4', file_name)
+    video_source = environment_variables['VIDEO_SOURCE']
+    first_frame_capture(video_source, file_name)
 
     img_path = file_name
     pixel_frame = cv2.imread(img_path, 1)
