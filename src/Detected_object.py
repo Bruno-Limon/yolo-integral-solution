@@ -69,7 +69,7 @@ class DetectedObject:
         if w > h and self.label_num == 0:
             self.is_down = True
 
-        if show_man_down == 'True':
+        if show_man_down == 'True' and self.is_down == True:
             cv2.rectangle(img=frame, pt1=(x1-2, y1+(h-50)), pt2=(x2+2, y2),
                           color=(0,0,0), thickness=-1)
             cv2.putText(img=frame, text="FALLEN", org=(x1, y2-5), fontFace=cv2.FONT_HERSHEY_SIMPLEX,

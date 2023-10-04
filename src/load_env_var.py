@@ -5,8 +5,10 @@ def load_var(iothub):
         from dotenv import load_dotenv
         load_dotenv()
 
-    list_var_names = ['VIDEO_SOURCE', 'DO_SKIP_FRAMES', 'SHOW_IMAGE', 'SAVE_VIDEO', 'CONNECTION_STRING',
+    list_var_names = ['VIDEO_SOURCE', 'DO_SKIP_FRAMES', 'SHOW_IMAGE', 'SAVE_VIDEO', 'IOTHUB_DEVICE_CONNECTION_STRING',
+                      'LIBRARY', 'TIME_INTERVAL', 'DO_MSG_BY_FRAME', 'DO_MSG_AGGREGATED',
                       'EXPOSE_STREAM', 'RUN_WAIT_TIME', 'FLASK_PORT', 'IS_STREAM',
+                      'MODEL_WEIGHTS', 'INPUT_SIZE', 'IOU', 'CONFIDENCE',
                       'DEVICE_ID', 'CAMERA_ID', 'MODEL_ID',
                       'DO_DRAW_BBOX', 'DO_MAN_DOWN', 'DO_DRAW_TRACKS', 'DO_TIME_ZONE', 'DO_COUNT_OBJECTS', 'DO_COUNT_ZONE', 'DO_ENTER_LEAVE',
                       'SHOW_MAN_DOWN', 'SHOW_ZONE', 'SHOW_COUNT_PEOPLE', 'SHOW_TIME_ZONE', 'SHOW_ENTER_LEAVE',

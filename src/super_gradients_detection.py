@@ -6,12 +6,17 @@
 import torch
 import time
 import cv2
+from load_env_var import load_var
+from Detected_object import DetectedObject
+from utils import *
 
 from super_gradients.training import models
 from super_gradients.training.models.detection_models.yolo_base import YoloPostPredictionCallback
 from super_gradients.training.processing import DetectionCenterPadding, StandardizeImage, ImagePermute, ComposeProcessing, DetectionLongestMaxSizeRescale
 
-def detect_sg(frame):
+
+def detect_sg(model, frame):
+    env_vars = load_var(iothub=False)
     start = time.time()
 
     class_names = ["person",
@@ -27,7 +32,7 @@ def detect_sg(frame):
         ]
     )
 
-    model = models.get("yolox_n", pretrained_weights="coco")
+    model = models.get(model, pretrained_weights=env_vars['MODEL_WEIGHTS'])
     if torch.cuda.is_available():
         model = model.to("cuda")
     else:
@@ -40,18 +45,20 @@ def detect_sg(frame):
 
     # image = cv2.imread('img2.PNG')
     # frame = cv2.resize(frame, (256, 256), interpolation= cv2.INTER_LINEAR)
-    images_predictions = model.predict(frame, iou=0.4, conf=0.2, fuse_model=False)
+    images_predictions = model.predict(frame, iou=float(env_vars['IOU']), conf=float(env_vars['CONFIDENCE']), fuse_model=False)
 
     class Object(object):
         pass
     detected_object = Object()
 
     for image_prediction in images_predictions:
+        class_names = image_prediction.class_names
         labels = image_prediction.prediction.labels
         confidence = image_prediction.prediction.confidence
         bboxes = image_prediction.prediction.bboxes_xyxy
 
-        detected_object.bbox = bboxes.astype(int).tolist()
+        detected_object.class_names = class_names
+        detected_object.bbox = bboxes.tolist()
         detected_object.cls = labels.astype(int).tolist()
         detected_object.conf = confidence.tolist()
 
@@ -61,9 +68,20 @@ def detect_sg(frame):
     return detected_object, elapsed_time
 
 if __name__ == "__main__":
-    frame = "img1.PNG"
-    results_image = detect_sg(frame)
-    print(results_image.conf)
+    path = "C:\\Users\\Pavilion\\Desktop\\4.jpg"
+    frame = cv2.imread(path)
+    labels_dict = get_labels_dict()
+
+    results_image, infer_time = detect_sg("yolox_n", frame)
+    list_objects = generate_objects(DetectedObject, results_image, labels_dict)
+
+    [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
+    for obj in list_objects:
+        print(obj.label_str)
+
+    cv2.imshow('Demo', frame)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 # # Image can be both uploaded to colab server or by a direct URL
 # image_path = "https://www.investorsinpeople.com/wp-content/uploads/2022/04/shutterstock_236097745.jpg"
