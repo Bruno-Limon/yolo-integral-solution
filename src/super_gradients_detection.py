@@ -6,17 +6,20 @@
 import torch
 import time
 import cv2
-from load_env_var import load_var
-from Detected_object import DetectedObject
+import os
 from utils import *
+from Detected_object import DetectedObject
 
 from super_gradients.training import models
 from super_gradients.training.models.detection_models.yolo_base import YoloPostPredictionCallback
 from super_gradients.training.processing import DetectionCenterPadding, StandardizeImage, ImagePermute, ComposeProcessing, DetectionLongestMaxSizeRescale
 
 
-def detect_sg(model, frame):
-    env_vars = load_var(iothub=False)
+def detect_sg(model_name, frame):
+    local_run = True
+    if local_run == True:
+        load_env_var()
+
     start = time.time()
 
     class_names = ["person",
@@ -32,7 +35,7 @@ def detect_sg(model, frame):
         ]
     )
 
-    model = models.get(model, pretrained_weights=env_vars['MODEL_WEIGHTS'])
+    model = models.get(model_name, pretrained_weights="coco")
     if torch.cuda.is_available():
         model = model.to("cuda")
     else:
@@ -45,7 +48,7 @@ def detect_sg(model, frame):
 
     # image = cv2.imread('img2.PNG')
     # frame = cv2.resize(frame, (256, 256), interpolation= cv2.INTER_LINEAR)
-    images_predictions = model.predict(frame, iou=float(env_vars['IOU']), conf=float(env_vars['CONFIDENCE']), fuse_model=False)
+    images_predictions = model.predict(frame, iou=.4, conf=.35, fuse_model=False)
 
     class Object(object):
         pass

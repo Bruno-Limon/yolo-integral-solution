@@ -1,6 +1,6 @@
 import cv2
 import os
-from load_env_var import load_var
+from utils import *
 
 
 def first_frame_capture(video_source, file_name):
@@ -105,10 +105,10 @@ def click_event(event, x, y, flags, params):
 
 
 if __name__=="__main__":
-    env_vars = load_var(iothub=False)
+    load_env_var()
 
     file_name = "frame.jpg"
-    video_source = env_vars['VIDEO_SOURCE']
+    video_source = os.environ['VIDEO_SOURCE']
     first_frame_capture(video_source, file_name)
 
     img_path = file_name

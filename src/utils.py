@@ -2,6 +2,9 @@ from datetime import datetime
 import cv2
 import numpy as np
 
+def load_env_var():
+    from dotenv import load_dotenv
+    load_dotenv()
 
 def get_labels_dict():
     labels_dict = {0: ["person", (209,209,0)],

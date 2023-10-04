@@ -10,7 +10,6 @@ import time
 import json
 
 from utils import *
-from load_env_var import load_var
 from Detected_object import DetectedObject
 
 # yolo_x through super-gradients
@@ -28,7 +27,7 @@ os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
-def detect(env_vars):
+def detect():
     ####### setting up necessary variables #######
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -37,7 +36,7 @@ def detect(env_vars):
     # dictionary to map the class number obtained with yolo with its name and color for bounding boxes
     labels_dict = get_labels_dict()
     # zone to count people in
-    zone_poly = get_zone_poly(env_vars['ZONE_COORDS'])
+    zone_poly = get_zone_poly(os.environ['ZONE_COORDS'])
 
     # NEEDS TRACKING
     # # dictionaries containing id of people entering/leaving and sets to count them
@@ -54,13 +53,13 @@ def detect(env_vars):
 
     # information about video source
     frame_counter = 0
-    cap = cv2.VideoCapture(env_vars['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
+    cap = cv2.VideoCapture(os.environ['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
     # variable to save video output into
-    if env_vars['SAVE_VIDEO'] == 'True':
+    if os.environ['SAVE_VIDEO'] == 'True':
         output = cv2.VideoWriter('output-demo.avi', cv2.VideoWriter_fourcc(*'MPEG'),
                                  fps=fps, frameSize=(width, height))
 
@@ -84,7 +83,7 @@ def detect(env_vars):
         time_interval_start = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
         # custom frames skipping
-        if env_vars['DO_SKIP_FRAMES'] == 'True':
+        if os.environ['DO_SKIP_FRAMES'] == 'True':
             if not is_stream:
                 while frames_to_skip > 0:
                     frames_to_skip -= 1
@@ -95,7 +94,7 @@ def detect(env_vars):
 
             # If failed and stream reconnect
             if not success and is_stream:
-                cap = cv2.VideoCapture(env_vars['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
+                cap = cv2.VideoCapture(os.environ['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
                 print('Reconnecting to the stream')
                 continue
 
@@ -114,11 +113,11 @@ def detect(env_vars):
             # results_image, img_info = process_frame(model_name='src/models/yolox_nano.pth', exp=model, frame=frame)
 
             # calling detection from super-gradients
-            if env_vars['LIBRARY'] == "supergradients":
-                results_image, infer_time = detect_sg(env_vars['MODEL_ID'], frame)
-                list_objects = generate_objects(DetectedObject, results_image, labels_dict, env_vars['LIBRARY'])
+            if os.environ['LIBRARY'] == "supergradients":
+                results_image, infer_time = detect_sg(os.environ['MODEL_ID'], frame)
+                list_objects = generate_objects(DetectedObject, results_image, labels_dict, os.environ['LIBRARY'])
 
-            if env_vars['LIBRARY'] == "ultralytics":
+            if os.environ['LIBRARY'] == "ultralytics":
                 model_obj = YOLO("yolov8n.pt") # tracking and object detection
                 results_ultralytics = model_obj.track(frame, save=False, stream=True, verbose=False, conf=.4,
                                                       persist=True, tracker="botsort.yaml", iou=.5, classes=[0,1,2,3,5,7])
@@ -134,38 +133,38 @@ def detect(env_vars):
                               infer_time_dict[0]['postprocess'])
                 infer_time /= 100
 
-                list_objects = generate_objects(DetectedObject, results_image, labels_dict, env_vars['LIBRARY'])
+                list_objects = generate_objects(DetectedObject, results_image, labels_dict, os.environ['LIBRARY'])
 
             # show bounding boxes
-            if env_vars['DO_DRAW_BBOX'] == 'True':
+            if os.environ['DO_DRAW_BBOX'] == 'True':
                 [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
 
             # detect man down
-            if env_vars['DO_MAN_DOWN'] == 'True':
-                [obj.get_is_down(frame, env_vars['SHOW_MAN_DOWN']) for obj in list_objects]
+            if os.environ['DO_MAN_DOWN'] == 'True':
+                [obj.get_is_down(frame, os.environ['SHOW_MAN_DOWN']) for obj in list_objects]
 
             # NEEDS TRACKING
             # draw tracks
-            # if env_vars['DO_DRAW_TRACKS'] == 'True':
+            # if os.environ['DO_DRAW_TRACKS'] == 'True':
             #     [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
 
             # NEEDS TRACKING
             # for every person inside an area, count the number of frames
-            if env_vars['DO_TIME_ZONE'] == 'True':
+            if os.environ['DO_TIME_ZONE'] == 'True':
                 for obj in list_objects:
                     obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
                     if obj_is_in_zone:
                         time_in_zone_dict[obj_id] += 1
                 # show time inside zone on top of people's boxes
-                [obj.draw_time_zone(frame, time_in_zone_dict, fps, zone_poly, env_vars['SHOW_TIME_ZONE']) for obj in list_objects]
+                [obj.draw_time_zone(frame, time_in_zone_dict, fps, zone_poly, os.environ['SHOW_TIME_ZONE']) for obj in list_objects]
 
             # count objects
-            if env_vars['DO_COUNT_OBJECTS'] == 'True':
-                number_objs = count_objs(frame, list_objects, env_vars['SHOW_COUNT_PEOPLE'])
+            if os.environ['DO_COUNT_OBJECTS'] == 'True':
+                number_objs = count_objs(frame, list_objects, os.environ['SHOW_COUNT_PEOPLE'])
 
             # count people in zone
-            if env_vars['DO_COUNT_ZONE'] == 'True':
-                number_people_zone = count_zone(frame, list_objects, zone_poly, env_vars['DOOR_COORDS'], env_vars['SHOW_ZONE'])
+            if os.environ['DO_COUNT_ZONE'] == 'True':
+                number_people_zone = count_zone(frame, list_objects, zone_poly, os.environ['DOOR_COORDS'], os.environ['SHOW_ZONE'])
 
             # NEEDS TRACKING
             # # count people entering and leaving a certain area
@@ -179,11 +178,11 @@ def detect(env_vars):
                 obj_info.append(x)
 
             # write output video
-            if env_vars['SAVE_VIDEO'] == 'True':
+            if os.environ['SAVE_VIDEO'] == 'True':
                 output.write(frame)
 
             # display the annotated frame
-            if env_vars['SHOW_IMAGE'] == 'True':
+            if os.environ['SHOW_IMAGE'] == 'True':
                 cv2.imshow('Demo', frame)
 
         # calculating times at end of the computation
@@ -192,13 +191,13 @@ def detect(env_vars):
         frames_to_skip=int(fps*elapsed)
 
         # sends message with info of each frame, about each individual object
-        if env_vars['DO_MSG_BY_FRAME'] == 'True':
-            print('LOG: results:', '\n')
-            frame_info_dict = send_frame_info(number_objs, number_people_zone, cap, obj_info)
-            yield frame_info_dict, frame
+        # if os.environ['DO_MSG_BY_FRAME'] == 'True':
+        #     print('LOG: results:', '\n')
+        #     frame_info_dict = send_frame_info(number_objs, number_people_zone, cap, obj_info)
+        #     yield frame_info_dict, frame
 
         # sends message with info only at certain intervals, aggregating results
-        if env_vars['DO_MSG_AGGREGATED'] == 'True':
+        if os.environ['MSG_AGGREGATION'] == 'True':
             list_times.append(elapsed)
             total_elapsed = sum(list_times)
             # print(list_times)
@@ -209,7 +208,7 @@ def detect(env_vars):
             # print(aggregates)
 
             # sends message when the necessary time has passed
-            if total_elapsed > int(env_vars['TIME_INTERVAL']):
+            if total_elapsed > int(os.environ['TIME_INTERVAL']):
                 print('LOG: results:', '\n')
                 list_times = []
                 list_aggregates = [[],[],[],[],[]]
@@ -221,13 +220,19 @@ def detect(env_vars):
                 yield agg_frame_info_dict, frame
             else:
                 yield None, frame
+        # sends message with info of each frame, about each individual object
+        else:
+            print('LOG: results:', '\n')
+            frame_info_dict = send_frame_info(number_objs, number_people_zone, cap, obj_info)
+            yield frame_info_dict, frame
+
 
         print_fps(frame, width, height, infer_time, elapsed)
 
     # release the video capture object and close the display window
     cap.release()
 
-    if env_vars['SAVE_VIDEO'] == 'True':
+    if os.environ['SAVE_VIDEO'] == 'True':
         output.release()
 
     cv2.destroyAllWindows()
@@ -288,17 +293,17 @@ def index():
     return 'Service is up!'
 
 def run_server():
-    app.run(host='0.0.0.0', port=env_vars['FLASK_PORT'], debug=False)
+    app.run(host='0.0.0.0', port=os.environ['FLASK_PORT'], debug=False)
 
 async def loop_main():
     global current_frame
     while True:
-        for frame_info, frame in detect(env_vars):
+        for frame_info, frame in detect():
             if frame_info is not None:
                 # frame_info['interval_end'] = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-                frame_info['device_id'] = env_vars['DEVICE_ID']
-                frame_info['camera_id'] = env_vars['CAMERA_ID']
-                frame_info['model_id'] = env_vars['MODEL_ID']
+                frame_info['device_id'] = os.environ['DEVICE_ID']
+                frame_info['camera_id'] = os.environ['CAMERA_ID']
+                frame_info['model_id'] = os.environ['MODEL_ID']
                 frame_info_str = json.dumps(obj=frame_info, indent=4)
                 print(frame_info_str, '\n')
 
@@ -309,11 +314,10 @@ async def loop_main():
 
 
 if __name__ == "__main__":
-
+    load_env_var()
     from frame_singleton import current_frame
-    env_vars = load_var(iothub=False)
 
-    if env_vars['EXPOSE_STREAM'] == 'True':
+    if os.environ['EXPOSE_STREAM'] == 'True':
         server_thread = threading.Thread(target=run_server)
         server_thread.daemon = True
         server_thread.start()
