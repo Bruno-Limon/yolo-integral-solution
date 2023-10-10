@@ -12,17 +12,7 @@ from yolox.utils import postprocess
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
 
 class Predictor(object):
-    def __init__(
-        self,
-        model,
-        exp,
-        cls_names=COCO_CLASSES,
-        trt_file=None,
-        decoder=None,
-        device="cpu",
-        fp16=False,
-        legacy=False,
-    ):
+    def __init__(self, model, exp, cls_names=COCO_CLASSES, trt_file=None, decoder=None, device="cpu", fp16=False, legacy=False):
         self.model = model
         self.cls_names = cls_names
         self.decoder = decoder
@@ -44,8 +34,13 @@ class Predictor(object):
             self.model(x)
             self.model = model_trt
 
-    def inference(self, img):
+    def inference(self, img)->tuple[list[None], dict[str, int]]:
+        """
+        performs inference on current frame using yolox model, getting outputs in the form of tensors
 
+        params:
+            img: current frame, given by opencv
+        """
         img_info = {"id": 0}
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
@@ -79,17 +74,18 @@ class Predictor(object):
                                   self.nmsthre, class_agnostic=True)
 
             # print("Infer time: {:.4f}s".format(time.time() - t0))
-            img_info["infer_time"] = time.time() - t0
+            img_info['infer_time'] = time.time() - t0
 
         return outputs, img_info
 
-    def visual(self, output, img_info, cls_conf=0.35):
+    def visual(self, output:list, img_info:dict)->object:
+        """
+        takes outputs in tensor form and uses them to instantiate an object with the predicted values
 
-        class Object(object):
-            pass
-
-        detected_object = Object()
-
+        params:
+            output: list of tensors produced by inference function
+            img_info: information about frame and inference time
+        """
         ratio = img_info["ratio"]
         img = img_info["raw_img"]
         if output is None:
@@ -98,28 +94,42 @@ class Predictor(object):
 
         bboxes_xyxy = output[:, 0:4]
         bboxes_xyxy /= ratio # preprocessing: resize
-        bboxes_xyxy = bboxes_xyxy.astype(int).tolist()
+        bboxes_xyxy = bboxes_xyxy.tolist()
         cls = (output[:, 6]).astype(int).tolist()
         scores = (output[:, 4] * output[:, 5]).tolist()
 
+        class Object(object):
+            pass
+        detected_object = Object()
         detected_object.bbox = bboxes_xyxy
         detected_object.cls = cls
         detected_object.conf = scores
 
         return detected_object
 
-def process_frame(model_name, exp, frame):
+def process_frame(model_name, exp, frame, conf, iou, input_size):
+    """
+    yolox algorithm to perform object detection
 
-    # define arguments
+    params:
+        model_name: model name to use in file path
+        exp: model, built by YOLOX.yolox.exp.build.get_exp
+        frame: current frame given by opencv
+        conf: confidence threshold, given by env_vars
+        iou: iou threshold, given by env_vars
+        input_size: input resolution, given by env_vars
+    """
     experiment_name = exp.exp_name
     device = "cpu"
+    if torch.cuda.is_available() == True:
+        device = "gpu"
     fp16 = False
     trt = False
     fuse = False
     legacy = False
-    exp.test_conf = 0.4
-    exp.nmsthre = 0.5
-    exp.test_size = (224, 224)
+    exp.test_conf = float(conf)
+    exp.nmsthre = float(iou)
+    exp.test_size = (int(input_size.split(',')[0]), int(input_size.split(',')[1]))
     model = exp.get_model()
 
     file_name = os.path.join(exp.output_dir, experiment_name)
@@ -153,6 +163,6 @@ def process_frame(model_name, exp, frame):
 
     img = [frame]
     outputs, img_info = predictor.inference(img=img[0])
-    result_image = predictor.visual(output=outputs[0], img_info=img_info, cls_conf=predictor.confthre)
+    result_image = predictor.visual(output=outputs[0], img_info=img_info)
 
     return result_image, img_info
