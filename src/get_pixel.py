@@ -1,9 +1,16 @@
 import cv2
 import os
+import config
 from utils import *
 
+if config.env_vars_local == True:
+    from dotenv import load_dotenv
+    load_dotenv()
 
 def first_frame_capture(video_source, file_name):
+    """
+    takes a video as source and saves its first frame
+    """
     cap = cv2.VideoCapture(video_source)
     frame_counter = 0
 
@@ -13,7 +20,14 @@ def first_frame_capture(video_source, file_name):
             cv2.imwrite(file_name, frame)
             frame_counter += 1
 
-def define_area(pixel_frame):
+def define_area(pixel_frame)->str:
+    """
+    function that calls opencv's mouse callback to get appropriate coordinates within
+    the chosen frame
+
+    param:
+        pixel_frame: global var for frame to use
+    """
     global pixel_points_coords
 
     pixel_points_coords = []
@@ -22,8 +36,8 @@ def define_area(pixel_frame):
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    return pixel_points_coords
 
+    return pixel_points_coords
 
 def click_event(event, x, y, flags, params):
     global pixel_frame
@@ -105,15 +119,15 @@ def click_event(event, x, y, flags, params):
 
 
 if __name__=="__main__":
-    load_env_var()
-
     file_name = "frame.jpg"
     video_source = os.environ['VIDEO_SOURCE']
     first_frame_capture(video_source, file_name)
 
     img_path = file_name
     pixel_frame = cv2.imread(img_path, 1)
-    pixel_type_area = "door"
+
+    # variable to choose the type of coords, either "door" or "area"
+    pixel_type_area = "area"
     zone_points = define_area(pixel_frame)
 
     os.remove(file_name)
