@@ -8,6 +8,7 @@ import time
 import cv2
 import os
 from utils import *
+import config
 from Detected_object import DetectedObject
 
 from super_gradients.training import models
@@ -15,10 +16,10 @@ from super_gradients.training.models.detection_models.yolo_base import YoloPostP
 from super_gradients.training.processing import DetectionCenterPadding, StandardizeImage, ImagePermute, ComposeProcessing, DetectionLongestMaxSizeRescale
 
 
-def detect_sg(model_name, frame):
-    local_run = True
-    if local_run == True:
-        load_env_var()
+def detect_sg(model_name, frame, conf, iou):
+    if config.env_vars_local == True:
+        from dotenv import load_dotenv
+        load_dotenv()
 
     start = time.time()
 
@@ -48,7 +49,7 @@ def detect_sg(model_name, frame):
 
     # image = cv2.imread('img2.PNG')
     # frame = cv2.resize(frame, (256, 256), interpolation= cv2.INTER_LINEAR)
-    images_predictions = model.predict(frame, iou=.4, conf=.35, fuse_model=False)
+    images_predictions = model.predict(frame, iou=float(iou), conf=float(conf), fuse_model=False)
 
     class Object(object):
         pass
