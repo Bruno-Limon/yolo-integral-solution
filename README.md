@@ -10,7 +10,7 @@ Under the guidance of:
 - Davide Pietrasanta
 - Lorenzo Spano
 
-<img alt="License" src="https://img.shields.io/badge/license-MIT-red"> <img alt="Python" src="https://img.shields.io/badge/python->=3.8-blue"> <img alt="Python" src="https://img.shields.io/badge/pylint-9.05-orange"> <img alt="Python" src="https://img.shields.io/badge/last_commit-april_2023-green">
+<img alt="License" src="https://img.shields.io/badge/license-MIT-red"> <img alt="Python" src="https://img.shields.io/badge/python->=3.8-blue"> <img alt="Python" src="https://img.shields.io/badge/pylint-9.05-green"> <img alt="Python" src="https://img.shields.io/badge/last_commit-november_2023-yellow">
 
 <!-- --------------------------------------------------------------------------------------- -->
 <!-- TABLE OF CONTENTS -->
@@ -30,12 +30,11 @@ Under the guidance of:
 ```text
 lib
 ├── data                        # Store data
-│   ├─ video                    # Store datasets
-│   └─ images                   # Store trained ML models
-├── YOLOX
-├── ByteTracker
+│   ├─ vid                      # videos
+│   └─ img                      # images
 ├── models
 ├── src                         # Actual code
+│   ├─ YOLOX                    # Yolox algorithm for object detection
 │   ├─ test                     # Test code
 │   ├─ code                     # General utility code
 │   ├─ exceptions.py            # To handle custom exceptions
