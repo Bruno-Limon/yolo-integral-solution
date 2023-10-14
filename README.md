@@ -26,16 +26,17 @@ Under the guidance of:
 
 ```text
 ├── data                        # data (gitignore)
-    ├─ vid                      
-    └─ img                      
-├── models                      # pytorch models (gitignore)
+    ├─ img
+    └─ vid
 ├── src                         # code
     ├─ YOLOX                    # yolox algorithm for object detection
+    ├─ models                   # yolox .pth models, download and put them here (gitignore)
     ├─ code                     # general utility code
     ├─ experiments              # code to run experiments to test different algorithms/params
 ├── config.py                   # common knowledge for the project
 |── main.py                     # read the config and run the project
 |── requirements.txt            # dependencies needed
+
 └── test.py                     # To test all
 ```
 
