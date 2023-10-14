@@ -4,5 +4,5 @@
 .env
 /data/img/*
 /data/vid/*
-/src/models/*
+/src/models/*.pth
 __pycache__/
