@@ -29,18 +29,19 @@ Under the guidance of:
 
 ```text
 lib
-├── data                        # Store data
-│   ├─ vid                      # videos
-│   └─ img                      # images
-├── models
-├── src                         # Actual code
-│   ├─ YOLOX                    # Yolox algorithm for object detection
-│   ├─ test                     # Test code
-│   ├─ code                     # General utility code
-│   ├─ exceptions.py            # To handle custom exceptions
+├── data                        # data (gitignore)
+│   ├─ vid                      
+│   └─ img                      
+├── models                      # pytorch models (gitignore)
+├── src                         # code
+│   ├─ YOLOX                    # yolox algorithm for object detection
+│   ├─ code                     # general utility code
+│   ├─ experiments              # code to run experiments to test different algorithms/params
 ├── config.py                   # Common knowledge for the project
 |── main.py                     # Run the setup, read the config and run the project
-|── requirements.txt
+|── requirements.txt            # dependencies needed
+
+
 |── setup.py                    # To manage the pip installation, YOLOX, ByteTracker, etc.
 └── test.py                     # To test all
 ```
