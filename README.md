@@ -1,6 +1,6 @@
-### A comprehensive collection of computer vision techniques for traffic flow and urban mobility analysis
+### Integration and development of computer vision techniques for traffic flow and urban mobility analysis
 
-Developed by:
+By:
 - Bruno Limon
 
 Under the guidance of:
@@ -28,21 +28,17 @@ Under the guidance of:
 ## Introduction
 
 ```text
-lib
 ├── data                        # data (gitignore)
-│   ├─ vid                      
-│   └─ img                      
+    ├─ vid                      
+    └─ img                      
 ├── models                      # pytorch models (gitignore)
 ├── src                         # code
-│   ├─ YOLOX                    # yolox algorithm for object detection
-│   ├─ code                     # general utility code
-│   ├─ experiments              # code to run experiments to test different algorithms/params
-├── config.py                   # Common knowledge for the project
-|── main.py                     # Run the setup, read the config and run the project
+    ├─ YOLOX                    # yolox algorithm for object detection
+    ├─ code                     # general utility code
+    ├─ experiments              # code to run experiments to test different algorithms/params
+├── config.py                   # common knowledge for the project
+|── main.py                     # read the config and run the project
 |── requirements.txt            # dependencies needed
-
-
-|── setup.py                    # To manage the pip installation, YOLOX, ByteTracker, etc.
 └── test.py                     # To test all
 ```
 
@@ -51,14 +47,12 @@ lib
 
 <!-- ------------------\--------------------------------------------------------------------- -->
 ## Contact
-
-Bruno Limon
 - bruno.limon.avila@gmail.com
 
 <!-- --------------------------------------------------------------------------------------- -->
 ## Acknowledgements
-
--
+- <a href = "https://github.com/Megvii-BaseDetection/YOLOX"> YOLOX object detection </a>
+- <a href = "https://github.com/ultralytics/ultralytics"> YOLOv8 object detection, segmentation and pose detection</a>
 
 <br><hr>
 [🔼 Back to the top](#)
