@@ -2,21 +2,23 @@ from collections import defaultdict
 import os
 import gc
 import sys
-import torch
-import cv2
 import time
 import json
 import logging
+import threading
+import torch
+import cv2
+from flask import Flask, Response, request
 
 from src.alert import Alert
+from src.Detected_object import DetectedObject
+from src.frame_singleton import current_frame
 from src.utils import *
 
 import config
-if config.env_vars_local == True:
+if config.env_vars_local is True:
     from dotenv import load_dotenv
     load_dotenv()
-
-from src.Detected_object import DetectedObject
 
 # yolo_x through super-gradients
 if os.environ['LIBRARY'] == "supergradients":
@@ -24,9 +26,7 @@ if os.environ['LIBRARY'] == "supergradients":
 
 # yolo_x from source
 if os.environ['LIBRARY'] == "yolox":
-    # sys.path.append("C:\\Users\\Pavilion\\Desktop\\VideoStreamAnalytics\\InnoVideoSolution\\modules\\YOLOv8Solution\\src\\YOLOX\\")
     sys.path.append(os.path.join(os.getcwd(), 'src', 'YOLOX'))
-    # print("CURRENT PATH", os.getcwd())
     from src.YOLOX.yolox.exp import get_exp
     from src.YOLOX.tools.detect import process_frame
 
@@ -42,47 +42,37 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 ENV_VAR_TRUE_LABEL = "true"
 
 
-def detect():
-    ####### setting up necessary variables #######
+def setup_detection():
+    """
+    setting up necessary variables that need to be declared before the detection loop
+    starts on each frame, so they are initialized at the beginning
+    """
     print('LOG: clearing cuda')
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
 
-    # dictionary to map the class number obtained with yolo with its name and color for bounding boxes
+    # dictionary to map the class number obtained with yolo with its name and color for bbox
     labels_dict = get_labels_dict()
     # zone to count people in
     zone_poly = get_zone_poly(os.environ['ZONE_COORDS'])
 
     # NEEDS TRACKING
-    # # dictionaries containing id of people entering/leaving and sets to count them
-    # people_entering_dict = {}
-    # entering = set()
-    # people_leaving_dict = {}
-    # leaving = set()
+    # dictionaries containing id of people entering/leaving and sets to count them
+    people_entering_dict = {}
+    entering = set()
+    people_leaving_dict = {}
+    leaving = set()
 
     # NEEDS TRACKING
     # store the track history
-    # track_history_dict = defaultdict(lambda: [])
+    track_history_dict = defaultdict(lambda: [])
     # store the amount of frames spent inside zone
     time_in_zone_dict = defaultdict(int)
 
-    # information about video source
-    print('LOG: connecting to the source')
-
-    frame_counter = 0
-    cap = cv2.VideoCapture(os.environ['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-
-    # variable to save video output into
-    if os.environ['SAVE_VIDEO'] == ENV_VAR_TRUE_LABEL:
-        output = cv2.VideoWriter('output-demo.avi', cv2.VideoWriter_fourcc(*'MPEG'),
-                                 fps=fps, frameSize=(width, height))
-
     # initialize frame skipping mechanism
-    is_stream = os.environ['IS_STREAM'] == ENV_VAR_TRUE_LABEL #type(vid_path) is int or vid_path.startswith('rtsp')Z
+    #type(vid_path) is int or vid_path.startswith('rtsp')
+    is_stream = os.environ['IS_STREAM'] == ENV_VAR_TRUE_LABEL
     frames_to_skip = 1
 
     # initialize empty lists for calculating time for aggregated messages
@@ -90,24 +80,177 @@ def detect():
     list_aggregates = [[],[],[],[],[]]
     time_interval_counter = 1
 
-    # alerting
-    # alert = Alert()
+    return labels_dict, zone_poly, time_in_zone_dict, is_stream, frames_to_skip, list_times, list_aggregates, time_interval_counter
 
-    #######
+def connect_video_source():
+    """
+    getting video capture for each frame
+    """
+    print('LOG: connecting to the source')
 
+    cap = cv2.VideoCapture(os.environ['VIDEO_SOURCE'], cv2.CAP_FFMPEG)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = int(cap.get(cv2.CAP_PROP_FPS))
 
+    return cap, width, height, fps
+
+def load_model():
+    """
+    xxxxxxxx
+    """
     print('LOG: loading model')
 
     if os.environ['LIBRARY'] == "ultralytics":
         model_size = load_model_size(os.environ['MODEL_SIZE'], os.environ['LIBRARY'])
         model_ultralytics = YOLO(model_size) # tracking and object detection
+        return model_ultralytics
 
     if os.environ['LIBRARY'] == "yolox":
         if os.environ['MODEL_SIZE'] in ["nano", "tiny"]:
             model_yolox = get_exp(exp_file=None, exp_name=f"yolox-{os.environ['MODEL_SIZE']}")
+            return model_yolox
         else:
             model_yolox = get_exp(exp_file=None, exp_name=f"yolox-{os.environ['MODEL_SIZE'][0]}")
+            return model_yolox
+    return None
 
+def compute_detection(model, frame, labels_dict):
+    """
+    xxxxxxxxxxxxxxxxx
+    """
+    print('LOG: frame read succesfully, computing detection')
+
+    if os.environ['LIBRARY'] == "yolox":
+        model_size = load_model_size(os.environ['MODEL_SIZE'],
+                                     os.environ['LIBRARY'])
+        results_image, img_info = process_frame(model_name=model_size,
+                                                exp=model,
+                                                frame=frame,
+                                                conf=os.environ['CONFIDENCE'],
+                                                iou=os.environ['IOU'],
+                                                input_size=os.environ['INPUT_SIZE'])
+        list_objects = generate_objects(DetectedObject, results_image,
+                                        labels_dict, os.environ['LIBRARY'])
+        infer_time = img_info['infer_time']
+
+    # calling detection from super-gradients
+    if os.environ['LIBRARY'] == "supergradients":
+        model_size = load_model_size(os.environ['MODEL_SIZE'],
+                                     os.environ['LIBRARY'])
+        results_image, infer_time = detect_sg(model_size, frame,
+                                              os.environ['CONFIDENCE'], os.environ['IOU'])
+        list_objects = generate_objects(DetectedObject, results_image,
+                                        labels_dict, os.environ['LIBRARY'])
+
+    if os.environ['LIBRARY'] == "ultralytics":
+        # results_ultralytics = model.track(frame,
+        #                                   save=False,
+        #                                   stream=True,
+        #                                   verbose=False,
+        #                                   conf=os.environ['CONFIDENCE'],
+        #                                   persist=True,
+        #                                   tracker="botsort.yaml",
+        #                                   iou=os.environ['IOU'],
+        #                                   classes=[0,1,2,3,5,7])
+        input_size = int(os.environ['INPUT_SIZE'].split(',')[0])
+        results_ultralytics = model(frame,
+                                    save=False,
+                                    stream=True,
+                                    verbose=False,
+                                    conf=float(os.environ['CONFIDENCE']),
+                                    iou=float(os.environ['IOU']),
+                                    imgsz=input_size,
+                                    classes=[0,1,2,3,5,7])
+
+        results_image = []
+        infer_time_dict = []
+        for r in results_ultralytics:
+            results_image.append(r.cpu())
+            infer_time_dict.append(r.speed)
+
+        infer_time = (infer_time_dict[0]['preprocess'] +
+                      infer_time_dict[0]['inference'] +
+                      infer_time_dict[0]['postprocess'])
+        infer_time /= 1000
+
+        list_objects = generate_objects(DetectedObject, results_image,
+                                        labels_dict, os.environ['LIBRARY'])
+
+    return list_objects, infer_time
+
+def post_processing(list_objects, frame, labels_dict, zone_poly, time_in_zone_dict, fps):
+    """
+    XXXXXXXXXXXXXXXXXX
+    """
+    print('LOG: detection completed, postprocessing frame')
+    # show bounding boxes
+    if os.environ['DO_DRAW_BBOX'] == ENV_VAR_TRUE_LABEL:
+        [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
+
+    # detect man down
+    if os.environ['DO_MAN_DOWN'] == ENV_VAR_TRUE_LABEL:
+        [obj.get_is_down(frame, os.environ['SHOW_MAN_DOWN']) for obj in list_objects]
+
+    # NEEDS TRACKING
+    # draw tracks
+    # if os.environ['DO_DRAW_TRACKS'] == ENV_VAR_TRUE_LABEL:
+    #     [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
+
+    # NEEDS TRACKING
+    # for every person inside an area, count the number of frames
+    if os.environ['DO_TIME_ZONE'] == ENV_VAR_TRUE_LABEL:
+        for obj in list_objects:
+            obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
+            if obj_is_in_zone:
+                time_in_zone_dict[obj_id] += 1
+        # show time inside zone on top of people's boxes
+        [obj.draw_time_zone(frame, time_in_zone_dict, fps, zone_poly,
+                            os.environ['SHOW_TIME_ZONE']) for obj in list_objects]
+
+    # count objects
+    if os.environ['DO_COUNT_OBJECTS'] == ENV_VAR_TRUE_LABEL:
+        number_objs = count_objs(frame, list_objects, os.environ['SHOW_COUNT_PEOPLE'])
+
+    # count people in zone
+    if os.environ['DO_COUNT_ZONE'] == ENV_VAR_TRUE_LABEL:
+        number_people_zone = count_zone(frame, list_objects, zone_poly,
+                                        os.environ['DOOR_COORDS'], os.environ['SHOW_ZONE'])
+
+    # NEEDS TRACKING
+    # # count people entering and leaving a certain area
+    # if os.environ['DO_ENTER_LEAVE'] == ENV_VAR_TRUE_LABEL:
+        # [obj.enter_leave(frame, width, show_enter_leave) for obj in list_objects]
+
+    # get a list with the individual info of each detected object
+    obj_info = []
+    for obj in list_objects:
+        x = obj.obj_info()
+        obj_info.append(x)
+
+    return number_objs, number_people_zone, obj_info
+
+def detect():
+    """
+    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    """
+    # initial variables needed for different purposes
+    labels_dict, zone_poly, time_in_zone_dict, is_stream, frames_to_skip, list_times, list_aggregates, time_interval_counter = setup_detection()
+    # video capture and its information
+    cap, width, height, fps = connect_video_source()
+
+    # variable to save video output into
+    if os.environ['SAVE_VIDEO'] == ENV_VAR_TRUE_LABEL:
+        output = cv2.VideoWriter('output-demo.avi', cv2.VideoWriter_fourcc(*'MPEG'),
+                                 fps=fps, frameSize=(width, height))
+
+    # alerting class instance
+    # alert = Alert()
+
+    # loading model depending of library to use
+    model = load_model()
+
+    #
     time_interval_start = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
     # read the video source
@@ -142,83 +285,10 @@ def detect():
 
         # frame is read successfully
         if success:
-            print('LOG: frame read succesfully, computing detection')
-
-            if os.environ['LIBRARY'] == "yolox":
-                model_size = load_model_size(os.environ['MODEL_SIZE'], os.environ['LIBRARY'])
-                results_image, img_info = process_frame(model_name=model_size, exp=model_yolox, frame=frame,
-                                                        conf=os.environ['CONFIDENCE'], iou=os.environ['IOU'], input_size=os.environ['INPUT_SIZE'])
-                list_objects = generate_objects(DetectedObject, results_image, labels_dict, os.environ['LIBRARY'])
-                infer_time = img_info['infer_time']
-
-            # calling detection from super-gradients
-            if os.environ['LIBRARY'] == "supergradients":
-                model_size = load_model_size(os.environ['MODEL_SIZE'], os.environ['LIBRARY'])
-                results_image, infer_time = detect_sg(model_size, frame, os.environ['CONFIDENCE'], os.environ['IOU'])
-                list_objects = generate_objects(DetectedObject, results_image, labels_dict, os.environ['LIBRARY'])
-
-            if os.environ['LIBRARY'] == "ultralytics":
-                # results_ultralytics = model_ultralytics.track(frame, save=False, stream=True, verbose=False, conf=os.environ['CONFIDENCE'],
-                #                                               persist=True, tracker="botsort.yaml", iou=os.environ['IOU'], classes=[0,1,2,3,5,7])
-                input_size = int(os.environ['INPUT_SIZE'].split(',')[0])
-                results_ultralytics = model_ultralytics(frame, save=False, stream=True, verbose=False, conf=float(os.environ['CONFIDENCE']),
-                                                        iou=float(os.environ['IOU']), imgsz=input_size, classes=[0,1,2,3,5,7])
-
-                results_image = []
-                infer_time_dict = []
-                for r in results_ultralytics:
-                    results_image.append(r.cpu())
-                    infer_time_dict.append(r.speed)
-
-                infer_time = (infer_time_dict[0]['preprocess'] +
-                              infer_time_dict[0]['inference'] +
-                              infer_time_dict[0]['postprocess'])
-                infer_time /= 100
-
-                list_objects = generate_objects(DetectedObject, results_image, labels_dict, os.environ['LIBRARY'])
-
-            print('LOG: detection completed, postprocessing frame')
-            # show bounding boxes
-            if os.environ['DO_DRAW_BBOX'] == ENV_VAR_TRUE_LABEL:
-                [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
-
-            # detect man down
-            if os.environ['DO_MAN_DOWN'] == ENV_VAR_TRUE_LABEL:
-                [obj.get_is_down(frame, os.environ['SHOW_MAN_DOWN']) for obj in list_objects]
-
-            # NEEDS TRACKING
-            # draw tracks
-            # if os.environ['DO_DRAW_TRACKS'] == ENV_VAR_TRUE_LABEL:
-            #     [obj.draw_tracks(frame, track_history_dict) for obj in list_objects]
-
-            # NEEDS TRACKING
-            # for every person inside an area, count the number of frames
-            if os.environ['DO_TIME_ZONE'] == ENV_VAR_TRUE_LABEL:
-                for obj in list_objects:
-                    obj_id, obj_is_in_zone, = obj.get_is_in_zone(zone_poly)
-                    if obj_is_in_zone:
-                        time_in_zone_dict[obj_id] += 1
-                # show time inside zone on top of people's boxes
-                [obj.draw_time_zone(frame, time_in_zone_dict, fps, zone_poly, os.environ['SHOW_TIME_ZONE']) for obj in list_objects]
-
-            # count objects
-            if os.environ['DO_COUNT_OBJECTS'] == ENV_VAR_TRUE_LABEL:
-                number_objs = count_objs(frame, list_objects, os.environ['SHOW_COUNT_PEOPLE'])
-
-            # count people in zone
-            if os.environ['DO_COUNT_ZONE'] == ENV_VAR_TRUE_LABEL:
-                number_people_zone = count_zone(frame, list_objects, zone_poly, os.environ['DOOR_COORDS'], os.environ['SHOW_ZONE'])
-
-            # NEEDS TRACKING
-            # # count people entering and leaving a certain area
-            # if do_enter_leave == True:
-                # [obj.enter_leave(frame, width, show_enter_leave) for obj in list_objects]
-
-            # get a list with the individual info of each detected object
-            obj_info = []
-            for obj in list_objects:
-                x = obj.obj_info()
-                obj_info.append(x)
+            # call inference of object detection models
+            list_objects, infer_time = compute_detection(model, frame, labels_dict)
+            # apply postprocessing to list of detected objects
+            number_objs, number_people_zone, obj_info = post_processing(list_objects, frame, labels_dict, zone_poly, time_in_zone_dict, fps)
 
             # write output video
             if os.environ['SAVE_VIDEO'] == ENV_VAR_TRUE_LABEL:
@@ -245,15 +315,18 @@ def detect():
             # print(list_times)
             # print(total_elapsed)
 
-            # forms a list containing all previous frames informations, goes back to empty after sending aggregated message
-            aggregates = aggregate_info(list_aggregates, number_objs, number_people_zone, list_objects)
+            # forms a list containing all previous frames informations,
+            # goes back to empty after sending aggregated message
+            aggregates = aggregate_info(list_aggregates, number_objs,
+                                        number_people_zone, list_objects)
             # print(aggregates)
 
             # sends message when the necessary time has passed
             time_interval_end = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             if total_elapsed > int(os.environ['AGGREGATION_TIME_INTERVAL']):
                 print('LOG: results:', '\n')
-                agg_frame_info_dict = send_agg_frame_info(aggregates, time_interval_start, time_interval_end, time_interval_counter)
+                agg_frame_info_dict = send_agg_frame_info(aggregates, time_interval_start,
+                                                          time_interval_end, time_interval_counter)
                 time_interval_start = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
                 list_times = []
@@ -269,7 +342,6 @@ def detect():
             print('LOG: results:', '\n')
             frame_info_dict = send_frame_info(number_objs, number_people_zone, cap, obj_info)
             yield frame_info_dict, frame
-
 
         print_fps(frame, width, height, infer_time, elapsed)
 
@@ -291,10 +363,6 @@ def detect():
 
 
 ############## FLASK #################
-
-from flask import Flask, Response, request
-import threading
-
 app = Flask(__name__)
 
 # Global variables
@@ -362,8 +430,6 @@ async def loop_main():
 ######################################
 
 if __name__ == "__main__":
-    from src.frame_singleton import current_frame
-
     # logging for debugging
     VERBOSITY_LEVEL = logging.INFO
     formatter = logging.Formatter('%(levelname)s - %(message)s')

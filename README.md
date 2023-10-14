@@ -7,7 +7,7 @@ Under the guidance of:
 - Salvatore Rinzivillo
 - Roberto Merangolo
 
-<img alt="License" src="https://img.shields.io/badge/license-MIT-red"> <img alt="Python" src="https://img.shields.io/badge/python->=3.8-blue"> <img alt="Python" src="https://img.shields.io/badge/pylint-9.05-green"> <img alt="Python" src="https://img.shields.io/badge/last_commit-november_2023-yellow">
+<img alt="License" src="https://img.shields.io/badge/license-MIT-red"> <img alt="Python" src="https://img.shields.io/badge/python->=3.8-blue"> <img alt="Python" src="https://img.shields.io/badge/pylint-7.57-green"> <img alt="Python" src="https://img.shields.io/badge/last_commit-november_2023-yellow">
 
 <!-- --------------------------------------------------------------------------------------- -->
 <!-- TABLE OF CONTENTS -->
