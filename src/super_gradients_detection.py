@@ -7,9 +7,9 @@ import torch
 import time
 import cv2
 import os
-from utils import *
+from src.utils import *
 import config
-from Detected_object import DetectedObject
+from src.Detected_object import DetectedObject
 
 from super_gradients.training import models
 from super_gradients.training.models.detection_models.yolo_base import YoloPostPredictionCallback

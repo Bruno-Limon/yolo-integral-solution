@@ -1,7 +1,7 @@
 import cv2
 import os
 import config
-from utils import *
+from src.utils import *
 
 if config.env_vars_local == True:
     from dotenv import load_dotenv
