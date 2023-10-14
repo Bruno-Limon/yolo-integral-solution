@@ -1,0 +1,5 @@
+In this folder you should put any data source you wish to use for object detection
+
+├── data
+    ├─ img
+    └─ vid
