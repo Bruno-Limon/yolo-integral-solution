@@ -5,4 +5,6 @@
 /data/img/*
 /data/vid/*
 /src/models/*.pth
+/src/experiments/img_results/*
+/src/experiments/test_results/*
 __pycache__/
