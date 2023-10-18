@@ -36,8 +36,8 @@ def generate_objects(DetectedObject, results_image, labels_dict:dict, library:st
 
                 # only creating an object if it belongs to the chosen classes
                 for box in (x for x in boxes if x.cls in [0,1,2,3,5,7]):
-                    if box.id == None:
-                        list_objects.append(DetectedObject(id=labels_dict[int(box.cls)][0],
+                    if box.id != None:
+                        list_objects.append(DetectedObject(id=int(box.id),
                                                            label_num=int(box.cls),
                                                            label_str=labels_dict[int(box.cls)][0],
                                                            conf=round(float(box.conf),2),
@@ -256,7 +256,8 @@ def load_model_size(model_size:str, library:str)->str:
         if model_size == "medium": model = "src/models/yolox_m.pth"
 
     if library == "ultralytics":
-        if model_size == "nano": model = "yolov8n.pt"
+        if model_size == "nano": model = "yolo_nas_s.pt"
+        # if model_size == "nano": model = "yolov8n.pt"
         if model_size == "small": model = "yolov8s.pt"
         if model_size == "medium": model = "yolov8m.pt"
 

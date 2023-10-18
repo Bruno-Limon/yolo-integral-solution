@@ -47,7 +47,7 @@ class DetectedObject:
             labels_dict: dictionary with corresponding labels for categories of objects
         """
 
-        text = f"{self.id} {self.conf}"
+        text = f"id: {self.id} {self.conf}"
         txt_size = cv2.getTextSize(text=text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, thickness=1)[0]
 
         # bbox rectangle
@@ -95,23 +95,23 @@ class DetectedObject:
             cv2.putText(img=frame, text="FALLEN", org=(self.bbox_x1, self.bbox_y2-5), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                         fontScale=1, color=(255,255,255), thickness=1)
 
-    # def draw_tracks(self, frame, track_history_dict)->None:
-    #     """
-    #     draws a line following the movement of detected people during a certain amount of frames
-    #
-    #     params:
-    #       frame: current frame given by opencv
-    #       track_history_dict: dict of history of positions related to an id
-    #     """
-    #     if self.label_num == 0:
-    #         track = track_history_dict[self.id]
-    #         track.append((float(self.bbox_x), float(self.bbox_y)))
-    #         if len(track) > 60:  # how many frames to keep the track
-    #             track.pop(0)
+    def draw_tracks(self, frame, track_history_dict)->None:
+        """
+        draws a line following the movement of detected people during a certain amount of frames
 
-    #         # draw the tracking lines
-    #         points = np.hstack(track).astype(np.int32).reshape((-1,1,2))
-    #         cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
+        params:
+          frame: current frame given by opencv
+          track_history_dict: dict of history of positions related to an id
+        """
+        if self.label_num == 0:
+            track = track_history_dict[self.id]
+            track.append((float(self.bbox_x), float(self.bbox_y)))
+            if len(track) > 60:  # how many frames to keep the track
+                track.pop(0)
+
+            # draw the tracking lines
+            points = np.hstack(track).astype(np.int32).reshape((-1,1,2))
+            cv2.polylines(img=frame, pts=[points], isClosed=False, color=(230,53,230), thickness=5)
 
     def get_is_in_zone(self, zone_poly)->tuple[int, bool]:
         """
@@ -164,40 +164,41 @@ class DetectedObject:
 
         return self.info
 
-#     # count number of people entering and leaving
-#     def enter_leave(self, frame, frame_width, door_poly, door2_poly):
-#         # lower point of bounding box, representing the feet
-#         feet_bb = (self.bbox_x, self.bbox_y+int((self.bbox_h/2)))
+    # TODO
+    # # count number of people entering and leaving
+    # def enter_leave(self, frame, frame_width, door_poly, door2_poly):
+    #     # lower point of bounding box, representing the feet
+    #     feet_bb = (self.bbox_x, self.bbox_y+int((self.bbox_h/2)))
 
-#         # first threshold of door
-#         cv2.polylines(img=frame, pts=[door_poly], isClosed=True, color=(0,204,255), thickness=thickness)
-#         # second threshold
-#         cv2.polylines(img=frame, pts=[door2_poly], isClosed=True, color=(0,204,255), thickness=thickness)
+    #     # first threshold of door
+    #     cv2.polylines(img=frame, pts=[door_poly], isClosed=True, color=(0,204,255), thickness=2)
+    #     # second threshold
+    #     cv2.polylines(img=frame, pts=[door2_poly], isClosed=True, color=(0,204,255), thickness=2)
 
-#         # people entering
-#         # if feet of person enter 1st threshold, add them to dict of people entering
-#         point_in_polygon = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
-#         if point_in_polygon >=0:
-#             people_entering_dict[self.id] = feet_bb
+    #     # people entering
+    #     # if feet of person enter 1st threshold, add them to dict of people entering
+    #     point_in_polygon = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
+    #     if point_in_polygon >=0:
+    #         people_entering_dict[self.id] = feet_bb
 
-#         # when they step on 2nd threshold, add them to the set
-#         if self.id in people_entering_dict:
-#             point_in_polygon2 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
-#             if point_in_polygon2 >=0:
-#                 entering.add(self.id)
+    #     # when they step on 2nd threshold, add them to the set
+    #     if self.id in people_entering_dict:
+    #         point_in_polygon2 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
+    #         if point_in_polygon2 >=0:
+    #             entering.add(self.id)
 
-#         # people leaving
-#         # same logic as before but reversing the order of the thresholds
-#         point_in_polygon3 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
-#         if point_in_polygon3 >=0:
-#             people_leaving_dict[self.id] = feet_bb
-#         if self.id in people_leaving_dict:
-#             point_in_polygon4 = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
-#             if point_in_polygon4 >=0:
-#                 leaving.add(self.id)
+    #     # people leaving
+    #     # same logic as before but reversing the order of the thresholds
+    #     point_in_polygon3 = cv2.pointPolygonTest(contour=door_poly, pt=feet_bb, measureDist=False)
+    #     if point_in_polygon3 >=0:
+    #         people_leaving_dict[self.id] = feet_bb
+    #     if self.id in people_leaving_dict:
+    #         point_in_polygon4 = cv2.pointPolygonTest(contour=door2_poly, pt=feet_bb, measureDist=False)
+    #         if point_in_polygon4 >=0:
+    #             leaving.add(self.id)
 
-#         cv2.rectangle(img=frame, pt1=(frame_width-110,0), pt2=(frame_width,55), color=(0,0,0), thickness=-1)
-#         cv2.putText(img=frame, text=f"Entering: {len(entering)}", org=(frame_width-110, 25), fontFace=font,
-#                 fontScale=.6, color=(255,255,255), thickness=1)
-#         cv2.putText(img=frame, text=f"Leaving: {len(leaving)}", org=(frame_width-110, 50), fontFace=font,
-#                 fontScale=.6, color=(255,255,255), thickness=1)
+    #     cv2.rectangle(img=frame, pt1=(frame_width-110,0), pt2=(frame_width,55), color=(0,0,0), thickness=-1)
+    #     cv2.putText(img=frame, text=f"Entering: {len(entering)}", org=(frame_width-110, 25), fontFace=font,
+    #             fontScale=.6, color=(255,255,255), thickness=1)
+    #     cv2.putText(img=frame, text=f"Leaving: {len(leaving)}", org=(frame_width-110, 50), fontFace=font,
+    #             fontScale=.6, color=(255,255,255), thickness=1)
