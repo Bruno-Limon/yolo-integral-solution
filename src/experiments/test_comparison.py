@@ -14,7 +14,7 @@ from YOLOX.tools.detect import process_frame
 from ultralytics import YOLO
 
 labels_dict = get_labels_dict()
-path = "src/experiments/4.jpg"
+path = "src/experiments/1.jpg"
 list_exp = ["yolox-nano", "yolox-s"]
 list_sizes = ["yolox_nano", "yolox_s"]
 list_sizes_v8 = ["n", "s"]
@@ -34,13 +34,13 @@ for exp_name, size in zip(list_exp, list_sizes):
             frame = cv2.imread(path)
             start = time.time()
             results_image, img_info = process_frame(model_name=f"src/models/{size}.pth", exp=model_yolox, frame=frame,
-                                                    conf=confidence, input_size=resolution)
+                                                    conf=confidence, iou=".45", input_size=resolution)
 
-            # list_objects = generate_objects(DetectedObject, results_image, labels_dict, "yolox")
+            list_objects = generate_objects(DetectedObject, results_image, labels_dict, "yolox")
             end = time.time()
             infer_time = end-start
 
-            # [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
+            [obj.draw_boxes(frame, labels_dict) for obj in list_objects]
             i += 1
             print(f"{i}-{size}_{resolution}_{confidence}")
             res = str(resolution.split(',')[0])
@@ -48,7 +48,7 @@ for exp_name, size in zip(list_exp, list_sizes):
             conf = conf.replace(".", "")
 
             dict_times_yolox[f"{i}-{size}_{res}_{conf}"] = infer_time
-            cv2.imwrite(f"src/experiments/test_results/{i}-{size}_{res}_{conf}.jpg",  frame)
+            cv2.imwrite(f"src/experiments/img_results/{i}-{size}_{res}_{conf}.jpg",  frame)
 
             for cls, bbox, score in zip(results_image.cls, results_image.bbox, results_image.conf):
                 if cls in [0,1,2,3,5,7]:
@@ -59,7 +59,7 @@ for exp_name, size in zip(list_exp, list_sizes):
                     list_bbox_yolox.append(obj_dict)
 
 json_bbox_yolox = json.dumps(list_bbox_yolox, indent=4)
-with open("src/experiments/bbox_yolox.json", "w") as outfile:
+with open("src/experiments/test_results/bbox_yolox.json", "w") as outfile:
     outfile.write(json_bbox_yolox)
 
 # yolov8
@@ -101,11 +101,11 @@ with open("src/experiments/bbox_yolox.json", "w") as outfile:
 #             cv2.imwrite(f"src/experiments/test_results/{i}-yolov8{size}_{str(res)}_{conf}.jpg", frame)
 
 # json_bbox_yolov8 = json.dumps(list_bbox_yolov8, indent=4)
-# with open("src/experiments/bbox_yolov8.json", "w") as outfile:
+# with open("src/experiments/test_results/bbox_yolov8.json", "w") as outfile:
 #     outfile.write(json_bbox_yolov8)
 
 # dict_times_yolox.update(dict_times_yolov8)
 json_dict_times = json.dumps(dict_times_yolox, indent=4)
 
-with open("src/experiments/dict_times.json", "w") as outfile:
+with open("src/experiments/test_results/dict_times.json", "w") as outfile:
     outfile.write(json_dict_times)
