@@ -1,9 +1,6 @@
 import cv2
 import os
 
-from config import enable_local_work
-enable_local_work()
-
 
 def first_frame_capture(video_source, file_name):
     """
