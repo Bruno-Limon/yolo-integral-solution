@@ -6,9 +6,9 @@ import torch
 import numpy as np
 import cv2
 import time
-from src.classes.Detected_object import DetectedObject
-from src.utils.postprocessing_utils import get_labels_dict, get_zone_poly, get_bbox_xywh, draw_keypoints
-from src.utils.postprocessing_utils import get_door_polygons, count_objs, count_zone
+from classes.Detected_object import DetectedObject
+from utils.postprocessing_utils import get_labels_dict, get_zone_poly, get_bbox_xywh, draw_keypoints
+from utils.postprocessing_utils import get_door_polygons, count_objs, count_zone
 
 
 # yolo_x through super-gradients

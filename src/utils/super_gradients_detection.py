@@ -9,7 +9,7 @@ import cv2
 from utils.postprocessing_utils import *
 from utils.detection_utils import generate_objects
 import config
-from src.classes.Detected_object import DetectedObject
+from classes.Detected_object import DetectedObject
 
 from super_gradients.training import models
 from super_gradients.training.models.detection_models.yolo_base import YoloPostPredictionCallback

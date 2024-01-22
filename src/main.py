@@ -12,13 +12,13 @@ import asyncio
 from flask import Flask, Response, request, g
 # from waitress import serve
 
-from src.classes.alert import Alert
-from src.utils.frame_singleton import current_frame
+from classes.alert import Alert
+from utils.frame_singleton import current_frame
 
-from src.utils.detection_utils import set_initial_vars, load_model, compute_detection
-from src.utils.detection_utils import compute_postprocessing, connect_video_source, send_alert
-from src.utils.postprocessing_utils import send_alert_info, send_agg_frame_info
-from src.utils.postprocessing_utils import send_frame_info, aggregate_info, print_fps
+from utils.detection_utils import set_initial_vars, load_model, compute_detection
+from utils.detection_utils import compute_postprocessing, connect_video_source, send_alert
+from utils.postprocessing_utils import send_alert_info, send_agg_frame_info
+from utils.postprocessing_utils import send_frame_info, aggregate_info, print_fps
 
 
 from config import enable_local_work, config_tracker

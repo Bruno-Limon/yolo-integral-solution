@@ -1,6 +1,6 @@
 import cv2
-from src.utils.detection_utils import compute_detection, compute_postprocessing
-from src.utils.postprocessing_utils import aggregate_info
+from utils.detection_utils import compute_detection, compute_postprocessing
+from utils.postprocessing_utils import aggregate_info
 from concurrent.futures import ThreadPoolExecutor
 
 
