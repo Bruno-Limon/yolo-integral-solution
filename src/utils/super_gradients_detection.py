@@ -6,10 +6,10 @@
 import torch
 import time
 import cv2
-import os
-from src.utils import *
+from utils.postprocessing_utils import *
+from utils.detection_utils import generate_objects
 import config
-from src.Detected_object import DetectedObject
+from classes.Detected_object import DetectedObject
 
 from super_gradients.training import models
 from super_gradients.training.models.detection_models.yolo_base import YoloPostPredictionCallback
@@ -42,13 +42,6 @@ def detect_sg(model_name, frame, conf, iou):
     else:
         model = model.to("cpu")
 
-    # model.set_dataset_processing_params(class_names=class_names,
-    #                                     image_processor=image_processor,
-    #                                     iou=0.35,
-    #                                     conf=0.25)
-
-    # image = cv2.imread('img2.PNG')
-    # frame = cv2.resize(frame, (256, 256), interpolation= cv2.INTER_LINEAR)
     images_predictions = model.predict(frame, iou=float(iou), conf=float(conf), fuse_model=False)
 
     class Object(object):
@@ -86,49 +79,3 @@ if __name__ == "__main__":
     cv2.imshow('Demo', frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-# # Image can be both uploaded to colab server or by a direct URL
-# image_path = "https://www.investorsinpeople.com/wp-content/uploads/2022/04/shutterstock_236097745.jpg"
-# response = requests.get(image_path)
-# image = Image.open(BytesIO(response.content))
-
-# # preprocess
-# import torchvision.transforms as transforms
-# import torch
-# # Prepare preprcoess transformations
-# # We resize to [640, 640] by COCO's dataset default, which the model was pretrained on.
-# preprocess = transforms.Compose([transforms.Resize([640, 640]),
-#                                  transforms.PILToTensor()])
-
-# # unsqueeze for [Batch x Channels x Width x Height] format
-# transformed_image = preprocess(image).float().unsqueeze(0)
-
-# # # load model
-# model = models.get("yolox_n", pretrained_weights="coco")
-# model = model.to("cuda" if torch.cuda.is_available() else "cpu")
-# model.eval()
-
-# with torch.no_grad():
-#   raw_predictions = model(transformed_image)
-
-# predictions = YoloPostPredictionCallback(conf=0.1, iou=0.4)(raw_predictions)[0].numpy()
-# bbox = predictions[:, 0:4]
-# conf = predictions[:, 4]
-# cls = predictions[:, 5]
-
-# class Object(object):
-#     pass
-# detected_object = Object()
-
-# detected_object.bbox = bbox
-# detected_object.cls = cls
-# detected_object.conf = conf
-
-# print(detected_object.conf)
-
-
-# import matplotlib.pyplot as plt
-# plt.figure(figsize=(10, 10))
-# plt.plot(bbox[:, [0, 2, 2, 0, 0]].T, bbox[:, [1, 1, 3, 3, 1]].T, '.-')
-# plt.imshow(image.resize([640, 640]))
-# plt.show()

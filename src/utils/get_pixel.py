@@ -1,17 +1,19 @@
 import cv2
 import os
-import config
-from src.utils import *
 
-if config.env_vars_local == True:
-    from dotenv import load_dotenv
-    load_dotenv()
+from config import enable_local_work
+enable_local_work()
+
 
 def first_frame_capture(video_source, file_name):
     """
     takes a video as source and saves its first frame
     """
-    cap = cv2.VideoCapture(video_source)
+    # enable rtsp capture for opencv
+    os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+    cap = cv2.VideoCapture(video_source, cv2.CAP_FFMPEG)
     frame_counter = 0
 
     while cap.isOpened and frame_counter < 1:
@@ -37,7 +39,7 @@ def define_area(pixel_frame)->str:
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    return pixel_points_coords
+    return f"coordinates for {pixel_type_area}: {pixel_points_coords}"
 
 def click_event(event, x, y, flags, params):
     global pixel_frame
@@ -127,7 +129,13 @@ if __name__=="__main__":
     pixel_frame = cv2.imread(img_path, 1)
 
     # variable to choose the type of coords, either "door" or "area"
+    pixel_type_list = ['area', 'door']
     pixel_type_area = "area"
+    if pixel_type_area in pixel_type_list:
+        pixel_type_area = pixel_type_area
+    else:
+        raise ValueError(f"Error: 'pixel_type_area' must be in {pixel_type_list}")
+
     zone_points = define_area(pixel_frame)
 
     os.remove(file_name)
