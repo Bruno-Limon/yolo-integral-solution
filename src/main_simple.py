@@ -12,12 +12,12 @@ from utils.detection_utils import set_initial_vars, load_model, compute_detectio
 from utils.detection_utils import compute_postprocessing, connect_video_source
 from utils.postprocessing_utils import send_frame_info, aggregate_info, print_fps, send_agg_frame_info
 
-
 from config import enable_local_work, config_tracker
 enable_local_work()
 config_tracker()
 
 ENV_VAR_TRUE_LABEL = "true"
+
 
 def detect():
     """
@@ -33,11 +33,11 @@ def detect():
     list_total_detect_times = []
 
     # initial variables needed for different purposes depending on state of the loop
-    print('LOG: clearing cuda', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+    # print('LOG: clearing cuda', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
     init_vars = set_initial_vars()
 
     # video capture and its information
-    print('LOG: connecting to the source', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+    # print('LOG: connecting to the source', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
     cap, width, height, fps, read_frame_time = connect_video_source()
 
     # variable to save video output into
@@ -46,15 +46,16 @@ def detect():
                                  fps=fps, frameSize=(width, height))
 
     # loading model depending of library to use
-    print('LOG: loading model', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+    # print('LOG: loading model', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
     model_detection, model_pose = load_model()
 
     # time at the beginning of time interval for aggregation of messages
     time_interval_start = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
     # read the video source
+    i = 0
     while cap.isOpened():
-        print('LOG: video source loaded', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+        # print('LOG: video source loaded', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
 
         # time at the start of the frame's computation
         frame_time_start = time.time()
@@ -68,15 +69,20 @@ def detect():
         Frame is read succesfully, so detection is done with the chosen model and then
         the results are processed to get desired information"""
         if success:
+            # print frame number on screen
+            cv2.putText(img=frame, text=str(i), org=(0 + 5, height - 10),
+                        fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.6,
+                        color=(255,100,255), thickness=3)
+
             # call inference of object detection models
-            print('LOG: frame read succesfully, computing detection', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            # print('LOG: frame read succesfully, computing detection', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
             list_objects, results_pose, infer_time = compute_detection(model_detection,
                                                                        model_pose,
                                                                        frame,
                                                                        init_vars['labels_dict'])
             init_vars['times_dict']['infer_time'] = infer_time
 
-            print('LOG: detection completed, postprocessing frame', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+            # print('LOG: detection completed, postprocessing frame', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
             # apply postprocessing to list of detected objects
             results_postproc, post_process_time, frame  = compute_postprocessing(list_objects,
                                                                                  results_pose,
@@ -114,7 +120,7 @@ def detect():
 
                 time_interval_end = datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
                 if time_elapsed > int(os.environ['AGGREGATION_TIME_INTERVAL']):
-                    print('LOG: results:', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3], '\n')
+                    # print('LOG: results:', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3], '\n')
                     agg_frame_info_dict = send_agg_frame_info(aggregates,
                                                               time_interval_start,
                                                               time_interval_end,
@@ -132,7 +138,7 @@ def detect():
                     yield agg_frame_info_dict, None
             # sends message with info of each frame, about each individual object
             else:
-                print('LOG: results:', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3], '\n')
+                # print('LOG: results:', datetime.today().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3], '\n')
                 frame_info_dict = send_frame_info(results_postproc, cap)
                 yield frame_info_dict, None
 
@@ -154,6 +160,8 @@ def detect():
             frame_time_end = time.time()
             total_time_elapsed = (frame_time_end-frame_time_start)
             init_vars['frames_to_skip'] = int(fps*total_time_elapsed)
+
+            i += 1
 
         else:
             break
@@ -178,7 +186,7 @@ async def loop_main():
                 frame_info['camera_id'] = os.environ['CAMERA_ID']
                 frame_info['model_id'] = os.environ['MODEL_ID']
                 frame_info_str = json.dumps(obj=frame_info, indent=4)
-                print(frame_info_str, '\n')
+                # print(frame_info_str, '\n')
 
             if avg_detection_time:
                 print(f"Avg detection time: {avg_detection_time}")

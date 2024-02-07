@@ -1,6 +1,10 @@
 import cv2
 import os
+import sys
 
+sys.path.append(os.path.join(os.getcwd(), 'src'))
+from config import enable_local_work
+enable_local_work()
 
 def first_frame_capture(video_source, file_name):
     """

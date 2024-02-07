@@ -125,6 +125,57 @@ def count_zone(cap, frame, list_objects:list, init_vars, show_zone:str)->int:
 
     return count_people_polygon
 
+
+def density_lane(frame, list_objects:list)->int:
+    """
+    performs counting of people inside a given zone
+    TODO
+    params:
+        cap:
+        frame: current frame given by opencv
+        list_objects: list of instatiated objects, corresponds to a detected object
+        init_vars: initial values such as coordinates for the zone or logo for alert
+        show_zone: boolean variable to show zone in visualization, from env_vars
+    """
+    count_lane_list = [0]*6
+    lanes_poly_list = []
+    lanes_coord_list = ["524,378|49,717|220,719|568,377",
+                        "594,377|563,379|220,719|389,719",
+                        "591,377|622,378|558,718|393,718",
+                        "871,719|675,379|648,379|698,718",
+                        "1046,717|715,376|678,378|874,719",
+                        "1046,719|713,379|761,378|1254,718"]
+    area_lane_list = []
+    lane_density_list = []
+
+    for lane in lanes_coord_list:
+        lane_poly = get_zone_poly(lane)
+        lanes_poly_list.append(lane_poly)
+
+    for lane in lanes_poly_list:
+        # cv2.polylines(img=frame, pts=[lane], isClosed=True, color=(255,0,0), thickness=2)
+        area_lane = cv2.contourArea(lane)
+        area_lane_list.append(area_lane)
+
+    for obj in list_objects:
+        x, y, w, h = obj.bbox_wh
+        for i, lane in enumerate(lanes_poly_list):
+            point_in_polygon = cv2.pointPolygonTest(contour=lane, pt=(x, y), measureDist=False)
+            if point_in_polygon >= 0:
+                count_lane_list[i] += 1
+
+    for i in range(6):
+        density = count_lane_list[i]/area_lane_list[i]*1000
+        lane_density_list.append(density)
+
+    # print(count_lane_list)
+    print(lane_density_list)
+
+    return count_lane_list, lane_density_list
+
+def is_congestion(frame, list_objects, count_lane_list, lane_density_list):
+    print("x")
+
 def get_door_polygons(frame, door_coords, show_zone):
     """
     performs counting of people inside a given zone
@@ -369,6 +420,7 @@ def draw_keypoints(frame, results_pose):
         frame:
         results_pose:
     """
+    color_saggital = (100,0,255)
     color_head = (175, 255, 46, .5)
     color_torso = (54, 104, 206, .5)
     color_arm_sx = (255, 0, 255, .5)
@@ -376,6 +428,13 @@ def draw_keypoints(frame, results_pose):
     color_leg_sx = (0, 0, 200, .5)
     color_leg_dx = (252, 168, 0, .5)
     tkn = 2 # thickness
+
+    def find_middle_point(coord1, coord2):
+        x1, y1 = coord1
+        x2, y2 = coord2
+        middle_x = (x1 + x2) / 2
+        middle_y = (y1 + y2) / 2
+        return (int(middle_x), int(middle_y))
 
     def circle_kp(color):
         cv2.circle(img=frame, center=(kp[i][j][0], kp[i][j][1]),
@@ -393,6 +452,12 @@ def draw_keypoints(frame, results_pose):
     for r in results_pose: kp = r.keypoints.xy.numpy().astype(np.int32)
     if kp.size != 0:
         for i in range(len(kp)):
+            nose = (kp[i][0][0], kp[i][0][1])
+            mid_feet = find_middle_point(kp[i][15], kp[i][16])
+            cv2.circle(img=frame, center=nose, radius=2, color=color_saggital, thickness=2)
+            cv2.line(img=frame, pt1=nose, pt2=mid_feet, color=color_saggital, thickness=3)
+            cv2.circle(img=frame, center=mid_feet, radius=2, color=color_saggital, thickness=2)
+
             for j in range(17):
                 # head
                 if j in [3,4]: circle_kp(color_head), line_ear_shoulder(color_head)
@@ -408,6 +473,9 @@ def draw_keypoints(frame, results_pose):
                 # right leg
                 if j == 12: circle_kp(color_leg_dx)
                 if j in [14,16]: circle_kp(color_leg_dx), connect_line(color_leg_dx)
+                # sagittal plane
+
+
 
             cv2.line(img=frame, pt1=(kp[i][6][0], kp[i][6][1]),
                      pt2=(kp[i][12][0], kp[i][12][1]), color=color_torso, thickness=tkn)
@@ -415,23 +483,54 @@ def draw_keypoints(frame, results_pose):
                      pt2=(kp[i][11][0], kp[i][11][1]), color=color_torso, thickness=tkn)
 
 """TODO WORK IN PROGRESS TODO"""
-def get_distance_objects(frame, list_objects:list):
-    """
+def draw_nearest_points(frame, bboxes):
+    def get_nearest_points(bbox1, bbox2):
+        x1, y1, w1, h1 = bbox1
+        x2, y2, w2, h2 = bbox2
 
-    """
-    positions_list = [(obj.bbox_x, obj.bbox_y) for obj in list_objects]
+        points_bbox1 = np.array([(x1, y1), (x1 + w1, y1), (x1, y1 + h1), (x1 + w1, y1 + h1)])
+        points_bbox2 = np.array([(x2, y2), (x2 + w2, y2), (x2, y2 + h2), (x2 + w2, y2 + h2)])
 
-    pairs = []
-    for i in range(len(positions_list)):
-        for j in range(i+1, len(positions_list)):
-            pairs.append([positions_list[i], positions_list[j]])
+        distances = np.linalg.norm(points_bbox1[:, np.newaxis, :] - points_bbox2, axis=2)
+        min_indices = np.unravel_index(np.argmin(distances), distances.shape)
 
-    for pair in pairs:
-        distance = np.sqrt(np.sum(np.square(np.array(pair[0]) - np.array(pair[1]))))
-        if distance < 50:
-            cv2.line(img=frame, pt1=(pair[0][0], pair[0][1]),
-                     pt2=(pair[1][0], pair[1][1]),
-                     color=(0,0,255), thickness=3)
+        nearest_point_bbox1 = tuple(points_bbox1[min_indices[0]])
+        nearest_point_bbox2 = tuple(points_bbox2[min_indices[1]])
+
+        return nearest_point_bbox1, nearest_point_bbox2
+
+    # Draw lines connecting nearest points
+    for i in range(len(bboxes)):
+        for j in range(i + 1, len(bboxes)):
+            x1, y1, w1, h1 = bboxes[i]
+            x2, y2, w2, h2 = bboxes[j]
+            nearest_point1, nearest_point2 = get_nearest_points(bboxes[i], bboxes[j])
+            distance = np.sqrt((nearest_point2[0] - nearest_point1[0])**2 +
+                               (nearest_point2[1] - nearest_point1[1])**2)
+            # print(i,j,distance)
+            # cv2.line(frame, nearest_point1, nearest_point2, (0, 255, 0), 2)
+            # if distance < 80:
+            #     # cv2.line(frame, nearest_point1, nearest_point2, (0, 255, 255), 2)
+            if distance < 50:
+                cv2.line(frame, nearest_point1, nearest_point2, (0, 0, 255), 2)
+                cv2.rectangle(frame, (x1, y1), (x1 + w1, y1 + h1), (0, 0, 255), 3)
+                cv2.rectangle(frame, (x2, y2), (x2 + w2, y2 + h2), (0, 0, 255), 3)
+
+                # # header of bbox to put info into
+                # cv2.rectangle(img=frame,
+                #             pt1=(self.bbox_x1 - 1, self.bbox_y1 - int(1.5 * txt_size[1])),
+                #             pt2=(self.bbox_x1 + txt_size[0] + 2, self.bbox_y1),
+                #             color=labels_dict[int(self.label_num)][1],
+                #             thickness=-1)
+
+                # # information about object, id and conf
+                # cv2.putText(img=frame,
+                #             text=text,
+                #             org=(self.bbox_x1, self.bbox_y1 - int(.5 * txt_size[1])),
+                #             fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                #             fontScale=.5,
+                #             color=(255,255,255),
+                #             thickness=1)
 
 def overlay_alert(cap, frame, init_vars:dict, alert_type:str):
     """
@@ -465,11 +564,12 @@ def get_labels_dict()->dict:
     returns a dictionary containing the corresponding labels for the possible categories to detect,
     their number, name and BGR color for visualization
     """
-    labels_dict = {0: ["person", (209,209,0,.5)],
-                   1: ["bicycle", (47,139,237,.5)],
-                   2: ["car", (42,237,139,.5)],
-                   3: ["motorcycle", (56,0,255,.5)],
-                   5: ["bus", (169,10,150,.5)],
-                   7: ["truck", (169,255,143,.5)]}
+    labels_dict = {0: ["person", (209,209,0)],
+                   1: ["bicycle", (47,139,237)],
+                   2: ["car", (42,237,139)],
+                #    2: ["car", (200,50,0)],
+                   3: ["motorcycle", (56,0,255)],
+                   5: ["bus", (169,10,150)],
+                   7: ["truck", (169,255,143)]}
 
     return labels_dict

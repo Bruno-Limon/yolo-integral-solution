@@ -1,7 +1,7 @@
 # Default YOLO tracker settings for BoT-SORT and Byte-Track trackers https://github.com/NirAharon/BoT-SORT 
 tracker_type: bytetrack
-track_high_thresh: 0.2
+track_high_thresh: 0.001
 track_low_thresh: 0.001
-new_track_thresh: 0.6
+new_track_thresh: 0.5
 track_buffer: 30
-match_thresh: 0.8
+match_thresh: 0.9

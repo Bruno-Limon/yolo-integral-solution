@@ -40,7 +40,8 @@ class DetectedObject:
         self.track = []
         self.is_moving = False
         self.direction = "-"
-        self.speed = 0
+        self.actual_speed = 0
+        self.rel_speed = 0
         self.is_down = False
         self.is_in_zone = False
         self.time_in_scene = 0
@@ -87,8 +88,9 @@ class DetectedObject:
                     thickness=1)
 
         # central lower point of bounding box, used for debugging
-        if self.label_num == 0:
-            cv2.circle(img=frame, center=(self.bbox_x, self.bbox_y+int((self.bbox_h/2))), radius=4, color=(0,255,0), thickness=-1)
+        # if self.label_num == 0:
+            # cv2.circle(img=frame, center=(self.bbox_x, self.bbox_y+int((self.bbox_h/2))), radius=4, color=(0,255,0), thickness=-1)
+            # cv2.circle(img=frame, center=(self.bbox_x, self.bbox_y), radius=2, color=(140,20,255), thickness=-1)
 
     def get_is_down(self, cap, frame, show_man_down:str)->None:
         """
@@ -114,6 +116,7 @@ class DetectedObject:
         # cv2.polylines(img=frame, pts=[zone_poly], isClosed=True, color=(255,0,0), thickness=2)
 
         self.bbox_quotient = self.bbox_w / self.bbox_h
+        # print(self.bbox_quotient)
         if self.bbox_quotient >= 1.5 and self.label_num == 0:
             self.is_down = True
         elif self.bbox_quotient >= 1 and self.bbox_quotient < 1.5 and self.label_num == 0:
@@ -156,7 +159,7 @@ class DetectedObject:
         self.track = init_vars['track_history_dict'][self.id]
         self.track.append((self.bbox_x, self.bbox_y))
 
-        if len(self.track) > 45:  # how many frames(seconds) to keep the track
+        if len(self.track) > 40:  # how many frames(seconds) to keep the track
             self.track.pop(0)
 
         if self.track:
@@ -164,7 +167,7 @@ class DetectedObject:
             self.track_last = self.track[-1:][0]
             self.track_distance = euclid_distance(self.track_first, self.track_last)
 
-             # track moves more than x pixels, depending on pixel per meter
+            # track moves more than x pixels, depending on pixel per meter
             if self.track_distance > 10:
                 self.is_moving = True
 
@@ -180,11 +183,11 @@ class DetectedObject:
         if self.track:
             # draw the tracking line position by position
             points = np.hstack(self.track).astype(np.int32).reshape((-1,1,2))
-            cv2.polylines(img=frame, pts=[points], isClosed=False,
-                          color=color, thickness=3)
+            # cv2.polylines(img=frame, pts=[points], isClosed=False,
+            #               color=color, thickness=2)
 
             # turns tracking history into vector
-            # cv2.arrowedLine(img=frame, pt1=self.track_first, pt2=self.track_last, color=color, thickness=2)
+            cv2.arrowedLine(img=frame, pt1=self.track_first, pt2=self.track_last, color=color, thickness=2)
 
     def estimate_direction(self, frame, labels_dict:dict)->None:
         """
@@ -241,32 +244,44 @@ class DetectedObject:
     def estimate_speed(self, frame, fps, init_vars:dict)->None:
         """
         """
-        # TO USE IN DETECTION_UTILS.PY:
-        # for obj in list_objects:
-        #     obj_is_in_zone = obj.get_is_in_zone(init_vars['cross_poly'])
-        #     if obj_is_in_zone:
-        #         init_vars['time_in_cross_dict'][obj.id] += 1
-        #     # show crossing speed when object leaves crossing zone
-        #     if not obj_is_in_zone and init_vars['time_in_cross_dict'][obj.id] > 0:
-        #         obj.estimate_speed(frame, fps, init_vars)
-
         labels_dict = init_vars['labels_dict']
         time_in_cross_dict = init_vars['time_in_cross_dict']
+        cross_poly = init_vars['cross_poly']
 
         time = time_in_cross_dict[self.id] # access dict with id and amount of time in zone
         if fps > 0:
             time = time/fps
         else:
             time = 0
-        self.speed = round(2.1/time, 1)
+        self.actual_speed = round(13/time, 1)
 
-        text = f"{self.speed} km/h"
+        text = f"{self.actual_speed} km/h"
         txt_size = cv2.getTextSize(text=text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.4, thickness=1)[0]
 
         cv2.rectangle(img=frame,
                       pt1=(self.bbox_x1 - 1, self.bbox_y2 + int(1.5*txt_size[1])),
                       pt2=(self.bbox_x1 + int(txt_size[0]*1.3), self.bbox_y2),
-                      color=labels_dict[int(self.label_num)][1],
+                      color=(0,0,0),
+                      thickness=-1)
+
+        cv2.putText(img=frame,
+                    text=text,
+                    org=(self.bbox_x1, self.bbox_y2 + int(1.2 * txt_size[1])),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=.5,
+                    color=(255,255,255),
+                    thickness=1)
+
+    def relative_speed(self, frame)->None:
+        """
+        """
+        text = f"{round(self.track_distance)}"
+        txt_size = cv2.getTextSize(text=text, fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=.4, thickness=1)[0]
+
+        cv2.rectangle(img=frame,
+                      pt1=(self.bbox_x1 - 1, self.bbox_y2 + int(1.5*txt_size[1])),
+                      pt2=(self.bbox_x1 + int(txt_size[0]*1.3), self.bbox_y2),
+                      color=(0,0,0),
                       thickness=-1)
 
         cv2.putText(img=frame,

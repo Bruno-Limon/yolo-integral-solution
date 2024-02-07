@@ -7,8 +7,8 @@ import numpy as np
 import cv2
 import time
 from classes.Detected_object import DetectedObject
-from utils.postprocessing_utils import get_labels_dict, get_zone_poly, get_bbox_xywh, draw_keypoints
-from utils.postprocessing_utils import get_door_polygons, count_objs, count_zone
+from utils.postprocessing_utils import get_labels_dict, get_zone_poly, get_bbox_xywh, draw_keypoints, density_lane
+from utils.postprocessing_utils import get_door_polygons, count_objs, count_zone, draw_nearest_points, is_congestion
 
 
 # yolo_x through super-gradients
@@ -69,7 +69,7 @@ def set_initial_vars()->dict:
     # store the amount of frames spent inside zone
     init_vars['time_in_zone_dict'] = defaultdict(int)
     # store the amount of frames spent inside crossing zone
-    # init_vars['time_in_cross_dict'] = defaultdict(int)
+    init_vars['time_in_cross_dict'] = defaultdict(int)
 
     # initialize frame skipping mechanism
     init_vars['is_stream'] = os.environ['IS_STREAM'] == ENV_VAR_TRUE_LABEL
@@ -365,9 +365,10 @@ def compute_postprocessing(list_objects, results_pose, frame, init_vars, cap)->t
         # create track history
         [obj.build_track(init_vars) for obj in list_objects]
         # draw tracks
-        [obj.draw_tracks(frame) for obj in list_objects]
+        if os.environ['DO_DRAW_TRACKS'] == ENV_VAR_TRUE_LABEL:
+            [obj.draw_tracks(frame) for obj in list_objects]
         # estimate direction
-        [obj.estimate_direction(frame, init_vars['labels_dict']) for obj in list_objects]
+        # [obj.estimate_direction(frame, init_vars['labels_dict']) for obj in list_objects]
         # for every person inside an area, count the number of frames spent inside
         if os.environ['DO_TIME_ZONE'] == ENV_VAR_TRUE_LABEL:
             for obj in list_objects:
@@ -395,6 +396,7 @@ def compute_postprocessing(list_objects, results_pose, frame, init_vars, cap)->t
                                                             frame,
                                                             list_objects,
                                                             init_vars,
+
                                                             os.environ['SHOW_ZONE'])
 
     # get a list with the individual info of each detected object
@@ -403,6 +405,37 @@ def compute_postprocessing(list_objects, results_pose, frame, init_vars, cap)->t
         x = obj.obj_info()
         obj_info.append(x)
     results_postproc['obj_info'] = obj_info
+
+    """
+    TODO SPEED
+    """
+    # estimate relative speed
+    [obj.relative_speed(frame) for obj in list_objects]
+
+    # estimate actual speed
+    # cv2.line(frame, (418,362), (801,364), (0,0,255), 4)
+    # cv2.polylines(img=frame, pts=[init_vars['cross_poly']], isClosed=True, color=(0,0,255), thickness=2)
+    # for obj in list_objects:
+    #         obj_is_in_zone = obj.get_is_in_zone(init_vars['cross_poly'])
+    #         if obj_is_in_zone:
+    #             init_vars['time_in_cross_dict'][obj.id] += 1
+    #         # show crossing speed when object leaves crossing zone
+    #         if not obj_is_in_zone and init_vars['time_in_cross_dict'][obj.id] > 0:
+    #             obj.estimate_speed(frame, fps, init_vars)
+
+    # calcualte distance between every object.
+    # bbox_list = [(obj.bbox_xy[0],
+    #               obj.bbox_xy[1],
+    #               obj.bbox_xy[2] - obj.bbox_xy[0],
+    #               obj.bbox_xy[3] - obj.bbox_xy[1]) for obj in list_objects]
+    # draw_nearest_points(frame, bbox_list)
+
+    # density of lanes
+    count_lane, lane_density_list = density_lane(frame, list_objects)
+
+    # congestion
+    # is_congestion()
+
 
     post_process_time = (time.time()-t0)
     return results_postproc, post_process_time, frame
